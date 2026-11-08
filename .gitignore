@@ -1,0 +1,12 @@
+**/node_modules/
+**/artifacts/
+**/cache/
+**/typechain-types/
+contracts/types/
+**/coverage/
+frontend/dist/
+frontend/*.tsbuildinfo
+**/.env
+**/.env.*
+!**/.env.example
+/frontend/
