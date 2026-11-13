@@ -1,12 +1,32 @@
+# Dependencies
 **/node_modules/
+
+# Hardhat / Smart Contract
 **/artifacts/
 **/cache/
 **/typechain-types/
 contracts/types/
 **/coverage/
+
+# Frontend build
 frontend/dist/
 frontend/*.tsbuildinfo
+**/.vite/
+
+# Environment variables / Secrets
 **/.env
 **/.env.*
 !**/.env.example
-/frontend/
+
+# Logs
+**/*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
