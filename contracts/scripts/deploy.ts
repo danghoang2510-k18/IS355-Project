@@ -8,12 +8,20 @@ if (chain.chainId !== 11155111n) {
 const [deployer] = await ethers.getSigners();
 if (!deployer) throw new Error("No deployer configured");
 
-const contract = await ethers.deployContract("DrugSupplyChain", [deployer.address]);
+const contract = await ethers.deployContract("DrugSupplyChain", [
+  deployer.address,
+]);
 await contract.waitForDeployment();
 const tx = contract.deploymentTransaction();
-console.log(JSON.stringify({
-  chainId: chain.chainId.toString(),
-  contract: await contract.getAddress(),
-  admin: deployer.address,
-  deployTransaction: tx?.hash,
-}, null, 2));
+console.log(
+  JSON.stringify(
+    {
+      chainId: chain.chainId.toString(),
+      contract: await contract.getAddress(),
+      admin: deployer.address,
+      deployTransaction: tx?.hash,
+    },
+    null,
+    2,
+  ),
+);

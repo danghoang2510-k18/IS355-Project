@@ -1,0 +1,43 @@
+{
+  "name": "Amoxicillin 500mg - BT-2026-00842",
+  "description": "NFT representing a pharmaceutical medicine batch in the Drug Supply Chain Traceability system. This is fictional test data for an academic blockchain project.",
+  "attributes": [
+    {
+      "trait_type": "GTIN",
+      "value": "03459876012345"
+    },
+    {
+      "trait_type": "Batch Number",
+      "value": "BT-2026-00842"
+    },
+    {
+      "trait_type": "Medicine Name",
+      "value": "Amoxicillin 500mg"
+    },
+    {
+      "trait_type": "Manufacturer",
+      "value": "DSCT Manufacturer"
+    },
+    {
+      "trait_type": "Manufacturer Wallet",
+      "value": "0x0135b764190A75D879d0946EA80D9F9F82AB75ac"
+    },
+    {
+      "trait_type": "Manufacture Date",
+      "value": "2026-11-17"
+    },
+    {
+      "trait_type": "Expiry Date",
+      "value": "2028-11-17"
+    },
+    {
+      "trait_type": "Network",
+      "value": "Ethereum Sepolia"
+    }
+  ],
+  "properties": {
+    "project": "Drug Supply Chain Traceability",
+    "schemaVersion": "1.0",
+    "disclaimer": "Fictional demonstration data. Not intended for medical use."
+  }
+}

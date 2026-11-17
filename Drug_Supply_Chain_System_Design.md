@@ -10,12 +10,12 @@
 
 ### 0.1. Tài liệu nguồn
 
-1. `YeuCauDeTai_Blockchain.docx`: Bài tập 03 — *Truy xuất nguồn gốc chuỗi cung ứng thuốc* theo định hướng MediLedger; chỉ định các nghiệp vụ `registerMedicine`, `transferOwnership`, `verifyProduct`, `burnToken`, `verifyAuthenticity`, môi trường Sepolia, QR, AES, IPFS/Pinata, Oracle.
+1. `YeuCauDeTai_Blockchain.docx`: Bài tập 03 — _Truy xuất nguồn gốc chuỗi cung ứng thuốc_ theo định hướng MediLedger; chỉ định các nghiệp vụ `registerMedicine`, `transferOwnership`, `verifyProduct`, `burnToken`, `verifyAuthenticity`, môi trường Sepolia, QR, AES, IPFS/Pinata, Oracle.
 2. `Rubik_Blockchain.xlsx`, sheet `Sheet1`, vùng `A1:H28`: bảng tiêu chí, mô tả và các yêu cầu định lượng về Smart Contract, DApp, IPFS, Token và Báo cáo & Thuyết trình.
 
 **Phân biệt nguồn và lựa chọn thiết kế:** Những nội dung ghi **[BẮT BUỘC]** là yêu cầu được nêu trong hai tài liệu. Những nội dung ghi **[THIẾT KẾ ĐỀ XUẤT]** (React, FastAPI, PostgreSQL, SIWE, cơ chế mã hóa, schema, API...) là giải pháp của nhóm nhằm đáp ứng yêu cầu, không phải quy định bắt buộc của giảng viên.
 
-**Lưu ý chênh lệch thang điểm:** Đề bài Word có **4 tiêu chí kỹ thuật × 10 = 40 điểm**. Rubric Excel có **5 tiêu chí × 10 = 50 điểm**, bổ sung *Báo cáo & Thuyết trình*. Nhóm phải theo dõi **cả 5 tiêu chí** của rubric để không bỏ sót điểm.
+**Lưu ý chênh lệch thang điểm:** Đề bài Word có **4 tiêu chí kỹ thuật × 10 = 40 điểm**. Rubric Excel có **5 tiêu chí × 10 = 50 điểm**, bổ sung _Báo cáo & Thuyết trình_. Nhóm phải theo dõi **cả 5 tiêu chí** của rubric để không bỏ sót điểm.
 
 ### 0.2. Mục đích sản phẩm
 
@@ -40,15 +40,15 @@ Hệ thống cho phép nhà sản xuất đăng ký lô thuốc có định danh
 
 ### 1.1. Các tác nhân
 
-| Tác nhân | Ký hiệu | Chức năng | Quyền kiểm soát |
-|---|---|---|---|
-| System Admin | ADMIN | Cấp/thu hồi vai trò, khóa thành viên, xem log | Không tự ý sở hữu/đốt NFT của thành viên |
-| Nhà sản xuất | MANUFACTURER | Đăng ký lô, mint NFT, upload chứng từ, bàn giao cho Distributor | Chỉ ví được admin xác thực mới được `registerMedicine` |
-| Nhà phân phối | DISTRIBUTOR | Nhận NFT, xem chứng từ theo quyền, chuyển cho Pharmacy/Hospital | Phải đang là chủ NFT và lô còn hạn |
-| Nhà thuốc | PHARMACY | Nhận NFT, kiểm chứng, ghi nhận bán hết lô/tiêu hủy | Chỉ hành động trên lô do chính mình sở hữu |
-| Bệnh viện | HOSPITAL | Tương tự Pharmacy | Chỉ hành động trên lô do chính mình sở hữu |
-| Người mua/khách | PUBLIC | Quét QR, đọc nguồn gốc công khai, xem trạng thái | Không có quyền ghi on-chain hay lấy chứng từ mật |
-| Oracle/Sensor gateway | ORACLE | Gửi bản ghi nhiệt độ có chữ ký và chứng cứ nguồn | Không thay đổi chủ sở hữu thuốc |
+| Tác nhân              | Ký hiệu      | Chức năng                                                       | Quyền kiểm soát                                        |
+| --------------------- | ------------ | --------------------------------------------------------------- | ------------------------------------------------------ |
+| System Admin          | ADMIN        | Cấp/thu hồi vai trò, khóa thành viên, xem log                   | Không tự ý sở hữu/đốt NFT của thành viên               |
+| Nhà sản xuất          | MANUFACTURER | Đăng ký lô, mint NFT, upload chứng từ, bàn giao cho Distributor | Chỉ ví được admin xác thực mới được `registerMedicine` |
+| Nhà phân phối         | DISTRIBUTOR  | Nhận NFT, xem chứng từ theo quyền, chuyển cho Pharmacy/Hospital | Phải đang là chủ NFT và lô còn hạn                     |
+| Nhà thuốc             | PHARMACY     | Nhận NFT, kiểm chứng, ghi nhận bán hết lô/tiêu hủy              | Chỉ hành động trên lô do chính mình sở hữu             |
+| Bệnh viện             | HOSPITAL     | Tương tự Pharmacy                                               | Chỉ hành động trên lô do chính mình sở hữu             |
+| Người mua/khách       | PUBLIC       | Quét QR, đọc nguồn gốc công khai, xem trạng thái                | Không có quyền ghi on-chain hay lấy chứng từ mật       |
+| Oracle/Sensor gateway | ORACLE       | Gửi bản ghi nhiệt độ có chữ ký và chứng cứ nguồn                | Không thay đổi chủ sở hữu thuốc                        |
 
 ### 1.2. Quy trình nghiệp vụ chuẩn
 
@@ -135,32 +135,32 @@ flowchart TB
 
 ### 2.2. Trách nhiệm từng tầng
 
-| Tầng | Nhiệm vụ | Được phép làm | Không được làm |
-|---|---|---|---|
-| React | Giao diện, nhập form, quét QR, hiển thị trạng thái và lịch sử | Kết nối ví, ký transaction, gọi REST, đọc RPC công khai | Chứa `PINATA_JWT`, private key, AES master key trong bundle |
-| MetaMask + ethers.js | Ký giao dịch của từng thành viên trên máy người dùng | Gọi `registerMedicine`, `transferOwnership`, `burnToken`, `setDocumentCID` | Gửi private key sang backend |
-| Solidity | Nguồn chân lý cho quyền sở hữu NFT, vai trò, vòng đời, CID đã ghi | Kiểm tra `msg.sender`, hạn sử dụng, giai đoạn, phát sự kiện | Lưu plaintext giá, PDF hoặc khóa mã hóa |
-| FastAPI | REST, xác thực quyền truy cập, mã hóa, upload/retrieve, Oracle | Xác minh chữ ký login, kiểm tra RBAC, quản lý Pinata token | Tự đại diện ký giao dịch của user nếu không có cơ chế ủy quyền minh bạch |
-| Web3.py | Đọc chain, events, receipt, `eth_call`, lập chỉ mục | Đọc owner, status, lịch sử, tình trạng transaction | Quyết định ownership thay contract |
-| PostgreSQL/SQLite | Cache/index, log backend, nonce và trạng thái đồng bộ | Phân trang, tìm kiếm nhanh, dựng Timeline | Được xem là nguồn chân lý on-chain |
-| IPFS | Lưu blob có content address | Lưu PDF/ảnh/JSON hoặc ciphertext của file | Tự bảo đảm quyền đọc dữ liệu gốc |
-| Key Store | Giữ secret và quyền giải mã | Cấp khóa có kiểm soát | Lưu key công khai trên chain/IPFS/frontend |
+| Tầng                 | Nhiệm vụ                                                          | Được phép làm                                                              | Không được làm                                                           |
+| -------------------- | ----------------------------------------------------------------- | -------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| React                | Giao diện, nhập form, quét QR, hiển thị trạng thái và lịch sử     | Kết nối ví, ký transaction, gọi REST, đọc RPC công khai                    | Chứa `PINATA_JWT`, private key, AES master key trong bundle              |
+| MetaMask + ethers.js | Ký giao dịch của từng thành viên trên máy người dùng              | Gọi `registerMedicine`, `transferOwnership`, `burnToken`, `setDocumentCID` | Gửi private key sang backend                                             |
+| Solidity             | Nguồn chân lý cho quyền sở hữu NFT, vai trò, vòng đời, CID đã ghi | Kiểm tra `msg.sender`, hạn sử dụng, giai đoạn, phát sự kiện                | Lưu plaintext giá, PDF hoặc khóa mã hóa                                  |
+| FastAPI              | REST, xác thực quyền truy cập, mã hóa, upload/retrieve, Oracle    | Xác minh chữ ký login, kiểm tra RBAC, quản lý Pinata token                 | Tự đại diện ký giao dịch của user nếu không có cơ chế ủy quyền minh bạch |
+| Web3.py              | Đọc chain, events, receipt, `eth_call`, lập chỉ mục               | Đọc owner, status, lịch sử, tình trạng transaction                         | Quyết định ownership thay contract                                       |
+| PostgreSQL/SQLite    | Cache/index, log backend, nonce và trạng thái đồng bộ             | Phân trang, tìm kiếm nhanh, dựng Timeline                                  | Được xem là nguồn chân lý on-chain                                       |
+| IPFS                 | Lưu blob có content address                                       | Lưu PDF/ảnh/JSON hoặc ciphertext của file                                  | Tự bảo đảm quyền đọc dữ liệu gốc                                         |
+| Key Store            | Giữ secret và quyền giải mã                                       | Cấp khóa có kiểm soát                                                      | Lưu key công khai trên chain/IPFS/frontend                               |
 
 **Lựa chọn kết nối:** Các transaction cập nhật NFT được ký trực tiếp ở browser qua MetaMask. Backend sử dụng Web3.py cho truy vấn, đối chiếu, lập chỉ mục và các tác vụ ngoài chuỗi. Như vậy hệ thống **có Web3.py** theo yêu cầu, đồng thời không cần giữ private key của Manufacturer/Distributor/Pharmacy trên server. Không bắt frontend buộc phải gửi giao dịch qua FastAPI; lựa chọn đó khó quản lý signer hơn.
 
 ### 2.3. Trên chuỗi so với ngoài chuỗi
 
-| Dữ liệu | Vị trí | Lý do |
-|---|---|---|
-| `tokenId`, GTIN, số lô, nhà sản xuất, hạn dùng, trạng thái | Smart Contract | Kiểm chứng và không phụ thuộc DB |
-| `ownerOf(tokenId)` khi NFT còn tồn tại | ERC-721 | Nguồn xác thực chủ sở hữu hiện tại |
-| CID giấy chứng nhận, CID metadata | Smart Contract | Cam kết tham chiếu nội dung |
-| Lịch sử chuyển giao | Ethereum Events; DB cache bản sao | Truy xuất đầy đủ; tránh mảng lớn tốn gas |
-| Giá giao dịch đã mã hóa | `CustodyTransferred` event dưới dạng `bytes` | Không lộ plaintext, vẫn có chứng cứ on-chain |
-| Giá plaintext, khóa AES | Chỉ ở phía có quyền; khóa trong Key Store | Tuyệt đối không công khai |
-| PDF CO, ảnh kiểm định, metadata thành phần | IPFS/Pinata | Giảm chi phí lưu on-chain |
-| Bảng tra nhanh, dữ liệu biểu đồ UI | Backend DB | Truy vấn nhanh và phân trang |
-| Nhật ký cảm biến chi tiết | DB riêng/ngoài chuỗi; hash neo on-chain nếu cần | Oracle có nguồn chứng cứ kiểm tra |
+| Dữ liệu                                                    | Vị trí                                          | Lý do                                        |
+| ---------------------------------------------------------- | ----------------------------------------------- | -------------------------------------------- |
+| `tokenId`, GTIN, số lô, nhà sản xuất, hạn dùng, trạng thái | Smart Contract                                  | Kiểm chứng và không phụ thuộc DB             |
+| `ownerOf(tokenId)` khi NFT còn tồn tại                     | ERC-721                                         | Nguồn xác thực chủ sở hữu hiện tại           |
+| CID giấy chứng nhận, CID metadata                          | Smart Contract                                  | Cam kết tham chiếu nội dung                  |
+| Lịch sử chuyển giao                                        | Ethereum Events; DB cache bản sao               | Truy xuất đầy đủ; tránh mảng lớn tốn gas     |
+| Giá giao dịch đã mã hóa                                    | `CustodyTransferred` event dưới dạng `bytes`    | Không lộ plaintext, vẫn có chứng cứ on-chain |
+| Giá plaintext, khóa AES                                    | Chỉ ở phía có quyền; khóa trong Key Store       | Tuyệt đối không công khai                    |
+| PDF CO, ảnh kiểm định, metadata thành phần                 | IPFS/Pinata                                     | Giảm chi phí lưu on-chain                    |
+| Bảng tra nhanh, dữ liệu biểu đồ UI                         | Backend DB                                      | Truy vấn nhanh và phân trang                 |
+| Nhật ký cảm biến chi tiết                                  | DB riêng/ngoài chuỗi; hash neo on-chain nếu cần | Oracle có nguồn chứng cứ kiểm tra            |
 
 ---
 
@@ -291,29 +291,29 @@ interface IDrugSupplyChain {
 
 ### 3.4. Bảng phân quyền chức năng
 
-| Hành động | ADMIN | MANUFACTURER | DISTRIBUTOR | PHARMACY | HOSPITAL | PUBLIC |
-|---|:---:|:---:|:---:|:---:|:---:|:---:|
-| Cấp/thu hồi vai trò | ✔ | — | — | — | — | — |
-| Đăng ký/mint lô | — | ✔ | — | — | — | — |
-| Chuyển lô đến mắt xích tiếp theo | — | ✔* | ✔* | — | — | — |
-| Upload và gắn CID | — | ✔* | ✔* | ✔* | ✔* | — |
-| Burn với lý do `CONSUMED` | — | — | — | ✔* | ✔* | — |
-| Burn với lý do `DESTROYED` | Duyệt† | ✔*† | ✔*† | ✔*† | ✔*† | — |
-| Đọc trạng thái công khai | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ |
-| Giải mã giá / truy cập chứng từ hạn chế | Theo chính sách | Theo chính sách | Theo chính sách | Theo chính sách | Theo chính sách | — |
+| Hành động                               |      ADMIN      |  MANUFACTURER   |   DISTRIBUTOR   |    PHARMACY     |    HOSPITAL     | PUBLIC |
+| --------------------------------------- | :-------------: | :-------------: | :-------------: | :-------------: | :-------------: | :----: |
+| Cấp/thu hồi vai trò                     |        ✔        |        —        |        —        |        —        |        —        |   —    |
+| Đăng ký/mint lô                         |        —        |        ✔        |        —        |        —        |        —        |   —    |
+| Chuyển lô đến mắt xích tiếp theo        |        —        |       ✔\*       |       ✔\*       |        —        |        —        |   —    |
+| Upload và gắn CID                       |        —        |       ✔\*       |       ✔\*       |       ✔\*       |       ✔\*       |   —    |
+| Burn với lý do `CONSUMED`               |        —        |        —        |        —        |       ✔\*       |       ✔\*       |   —    |
+| Burn với lý do `DESTROYED`              |     Duyệt†      |      ✔\*†       |      ✔\*†       |      ✔\*†       |      ✔\*†       |   —    |
+| Đọc trạng thái công khai                |        ✔        |        ✔        |        ✔        |        ✔        |        ✔        |   ✔    |
+| Giải mã giá / truy cập chứng từ hạn chế | Theo chính sách | Theo chính sách | Theo chính sách | Theo chính sách | Theo chính sách |   —    |
 
 `*` Chỉ khi thành viên là owner hiện tại, đang active, thỏa quy trình nghiệp vụ. `†` Đề xuất có cờ phê duyệt tiêu hủy (`approveDestruction(tokenId)`) hoặc chứng từ tiêu hủy có kiểm soát; đây là **bổ sung tự chọn** để chống burn tùy tiện, không có trong đề gốc.
 
 ### 3.5. Preconditions, postconditions và lỗi nghiệp vụ
 
-| Hàm | Kiểm tra bắt buộc | Kết quả nếu thành công | Trường hợp phải revert |
-|---|---|---|---|
-| `registerMedicine` | Caller là Manufacturer active; GTIN/số lô không rỗng; ngày sản xuất ≤ hiện tại; hạn dùng > hiện tại và sau ngày sản xuất; key chưa dùng | Ghi lô, mint token, phát `MedicineRegistered`, `Transfer(0, manufacturer)` | `Unauthorized`, `InvalidDates`, `DuplicateBatch` |
-| `transferOwnership` | Caller là owner; owner/recipient có vai trò active phù hợp tuyến; status ACTIVE; chưa hết hạn; recipient khác owner | NFT đổi owner; stage cập nhật; phát `CustodyTransferred` + ERC-721 `Transfer` | `NotOwner`, `ExpiredBatch`, `InvalidRoute`, `InactiveParticipant`, `FinalizedBatch` |
-| `verifyProduct` | Đọc hồ sơ kể cả sau burn | Trả `NOT_FOUND`, `AUTHENTIC`, `EXPIRED`, `CONSUMED`, `DESTROYED`, `INVALID_OWNER` | Không nên revert chỉ vì mã không tồn tại |
-| `verifyAuthenticity` | Token còn tồn tại, claimedOwner trùng NFT owner, role + stage hợp lệ, chưa hết hạn | Boolean | `false` cho sai owner/burn/expired |
-| `setDocumentCID` | Caller là owner hoặc bên được ủy quyền theo chính sách; CID không rỗng; loại chứng từ hợp lệ | Cập nhật CID, phát event | `Unauthorized`, `InvalidCID` |
-| `burnToken` | Caller là owner, role hợp lệ; `finalStatus` chỉ `CONSUMED` hoặc `DESTROYED`; CONSUMED chỉ ở Pharmacy/Hospital; DESTROYED theo chính sách | Ghi trạng thái cuối/lastOwner rồi `_burn`, phát event | `InvalidFinalStatus`, `NotOwner`, `UnauthorizedBurn` |
+| Hàm                  | Kiểm tra bắt buộc                                                                                                                        | Kết quả nếu thành công                                                            | Trường hợp phải revert                                                              |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| `registerMedicine`   | Caller là Manufacturer active; GTIN/số lô không rỗng; ngày sản xuất ≤ hiện tại; hạn dùng > hiện tại và sau ngày sản xuất; key chưa dùng  | Ghi lô, mint token, phát `MedicineRegistered`, `Transfer(0, manufacturer)`        | `Unauthorized`, `InvalidDates`, `DuplicateBatch`                                    |
+| `transferOwnership`  | Caller là owner; owner/recipient có vai trò active phù hợp tuyến; status ACTIVE; chưa hết hạn; recipient khác owner                      | NFT đổi owner; stage cập nhật; phát `CustodyTransferred` + ERC-721 `Transfer`     | `NotOwner`, `ExpiredBatch`, `InvalidRoute`, `InactiveParticipant`, `FinalizedBatch` |
+| `verifyProduct`      | Đọc hồ sơ kể cả sau burn                                                                                                                 | Trả `NOT_FOUND`, `AUTHENTIC`, `EXPIRED`, `CONSUMED`, `DESTROYED`, `INVALID_OWNER` | Không nên revert chỉ vì mã không tồn tại                                            |
+| `verifyAuthenticity` | Token còn tồn tại, claimedOwner trùng NFT owner, role + stage hợp lệ, chưa hết hạn                                                       | Boolean                                                                           | `false` cho sai owner/burn/expired                                                  |
+| `setDocumentCID`     | Caller là owner hoặc bên được ủy quyền theo chính sách; CID không rỗng; loại chứng từ hợp lệ                                             | Cập nhật CID, phát event                                                          | `Unauthorized`, `InvalidCID`                                                        |
+| `burnToken`          | Caller là owner, role hợp lệ; `finalStatus` chỉ `CONSUMED` hoặc `DESTROYED`; CONSUMED chỉ ở Pharmacy/Hospital; DESTROYED theo chính sách | Ghi trạng thái cuối/lastOwner rồi `_burn`, phát event                             | `InvalidFinalStatus`, `NotOwner`, `UnauthorizedBurn`                                |
 
 **Ràng buộc Solidity quan trọng:** `AccessControl` check ở các entrypoint; kiểm tra lặp lại trên mọi đường chuyển token (bao gồm `transferFrom`/`safeTransferFrom` hoặc khóa chúng). Nên có `nonReentrant`/checks-effects-interactions khi gọi `safeMint`/`safeTransfer` vì có thể phát sinh callback `onERC721Received` tới smart contract đích. Mọi trạng thái phải cập nhật nhất quán nếu transaction revert.
 
@@ -342,18 +342,18 @@ interface IDrugSupplyChain {
 
 ### 4.2. Các route/trang
 
-| Route | Vai trò truy cập | Nội dung | Tương tác thực tế |
-|---|---|---|---|
-| `/` | Public | Landing, tra cứu nhanh, mô tả quy trình | Read-only |
-| `/verify` | Public | QR scanner, nhập tokenId, kết quả thật/không tồn tại/hết hạn/burn | `verifyProduct`, `getMedicine`, `getDocument` |
-| `/batch/:tokenId` | Public/authorized | Thông tin lô, owner, lịch sử, CID công khai | RPC read + REST timeline |
-| `/dashboard` | Đã kết nối ví | Tổng số lô theo trạng thái, lô đang sở hữu, cảnh báo hết hạn | REST index + RPC đối chiếu |
-| `/batches/new` | Manufacturer | Form đăng ký lô | Wallet tx `registerMedicine` |
-| `/batches/:tokenId/transfer` | Owner Manufacturer/Distributor | Chọn bên nhận, nhập giá, xác minh rồi chuyển | AES API + Wallet tx `transferOwnership` |
-| `/batches/:tokenId/documents` | Owner/role cho phép | Upload PDF/ảnh/JSON, tải/xem, lưu CID | REST Pinata + Wallet tx `setDocumentCID` |
-| `/batches/:tokenId/close` | Owner có quyền | Chọn Consumed/Destroyed và burn | Wallet tx `burnToken` |
-| `/admin/participants` | Admin | Quản lý Manufacturer/Distributor/Pharmacy/Hospital | Wallet tx `setParticipant` |
-| `/oracle` | Admin/đơn vị liên quan | Lịch sử nhiệt độ, chữ ký, cảnh báo | Backend REST; anchor tùy chọn |
+| Route                         | Vai trò truy cập               | Nội dung                                                          | Tương tác thực tế                             |
+| ----------------------------- | ------------------------------ | ----------------------------------------------------------------- | --------------------------------------------- |
+| `/`                           | Public                         | Landing, tra cứu nhanh, mô tả quy trình                           | Read-only                                     |
+| `/verify`                     | Public                         | QR scanner, nhập tokenId, kết quả thật/không tồn tại/hết hạn/burn | `verifyProduct`, `getMedicine`, `getDocument` |
+| `/batch/:tokenId`             | Public/authorized              | Thông tin lô, owner, lịch sử, CID công khai                       | RPC read + REST timeline                      |
+| `/dashboard`                  | Đã kết nối ví                  | Tổng số lô theo trạng thái, lô đang sở hữu, cảnh báo hết hạn      | REST index + RPC đối chiếu                    |
+| `/batches/new`                | Manufacturer                   | Form đăng ký lô                                                   | Wallet tx `registerMedicine`                  |
+| `/batches/:tokenId/transfer`  | Owner Manufacturer/Distributor | Chọn bên nhận, nhập giá, xác minh rồi chuyển                      | AES API + Wallet tx `transferOwnership`       |
+| `/batches/:tokenId/documents` | Owner/role cho phép            | Upload PDF/ảnh/JSON, tải/xem, lưu CID                             | REST Pinata + Wallet tx `setDocumentCID`      |
+| `/batches/:tokenId/close`     | Owner có quyền                 | Chọn Consumed/Destroyed và burn                                   | Wallet tx `burnToken`                         |
+| `/admin/participants`         | Admin                          | Quản lý Manufacturer/Distributor/Pharmacy/Hospital                | Wallet tx `setParticipant`                    |
+| `/oracle`                     | Admin/đơn vị liên quan         | Lịch sử nhiệt độ, chữ ký, cảnh báo                                | Backend REST; anchor tùy chọn                 |
 
 **Cần ít nhất 3 chức năng tương tác on-chain theo rubric:** Demo trực tiếp `registerMedicine`, `transferOwnership`, `verifyProduct` (read); nên bổ sung `setDocumentCID`, `verifyAuthenticity` và `burnToken` để bảo đảm bao phủ cả 4 tiêu chí.
 
@@ -408,21 +408,21 @@ Hiển thị tuyến **Manufacturer → Distributor → Pharmacy/Hospital** dư�
 
 ### 5.3. REST API v1
 
-| HTTP | Endpoint | Quyền | Request/response chính | Lưu ý |
-|---|---|---|---|---|
-| `GET` | `/api/v1/health` | Public | version, service status | Không lộ secret |
-| `POST` | `/api/v1/auth/nonce` | Public | `{address,chainId}` → `{nonce,message,expiresAt}` | Rate limit |
-| `POST` | `/api/v1/auth/verify` | Public | `{message,signature}` → session | Anti-replay |
-| `GET` | `/api/v1/batches?owner=...&page=1` | Public/role | danh sách lô cache | Đối chiếu current on-chain khi cần |
-| `GET` | `/api/v1/batches/{tokenId}` | Public | batch, verification, owner | `tokenId` là decimal string |
-| `GET` | `/api/v1/batches/{tokenId}/timeline` | Public | events đã xác nhận + txHash | Pagination |
-| `GET` | `/api/v1/batches/{tokenId}/documents` | Public/role | danh sách loại, CID, visibility | Không trả plaintext file mật |
-| `POST` | `/api/v1/batches/{tokenId}/documents` | Session + token owner | multipart file + documentType, visibility → `{cid,sha256,encrypted}` | Chỉ upload, chưa gắn CID trên chain |
-| `GET` | `/api/v1/batches/{tokenId}/documents/{type}/content` | Public nếu public; RBAC nếu private | stream PDF/image/JSON | File private giải mã có kiểm soát |
-| `POST` | `/api/v1/encryption/prices` | Sender owner + session | amount,currency,buyer wallet,tokenId → `0x` bytes envelope | Mã hóa trước transaction |
-| `POST` | `/api/v1/encryption/prices/decrypt` | Authorized party | ciphertext reference → price | Ghi audit, không cache plaintext |
-| `POST` | `/api/v1/oracle/readings` | Oracle device | signed payload | Kiểm chữ ký, timestamp, replay |
-| `GET` | `/api/v1/oracle/batches/{tokenId}` | Authorized/public summary | readings + alerts | Không khẳng định dữ liệu tuyệt đối đúng |
+| HTTP   | Endpoint                                             | Quyền                               | Request/response chính                                               | Lưu ý                                   |
+| ------ | ---------------------------------------------------- | ----------------------------------- | -------------------------------------------------------------------- | --------------------------------------- |
+| `GET`  | `/api/v1/health`                                     | Public                              | version, service status                                              | Không lộ secret                         |
+| `POST` | `/api/v1/auth/nonce`                                 | Public                              | `{address,chainId}` → `{nonce,message,expiresAt}`                    | Rate limit                              |
+| `POST` | `/api/v1/auth/verify`                                | Public                              | `{message,signature}` → session                                      | Anti-replay                             |
+| `GET`  | `/api/v1/batches?owner=...&page=1`                   | Public/role                         | danh sách lô cache                                                   | Đối chiếu current on-chain khi cần      |
+| `GET`  | `/api/v1/batches/{tokenId}`                          | Public                              | batch, verification, owner                                           | `tokenId` là decimal string             |
+| `GET`  | `/api/v1/batches/{tokenId}/timeline`                 | Public                              | events đã xác nhận + txHash                                          | Pagination                              |
+| `GET`  | `/api/v1/batches/{tokenId}/documents`                | Public/role                         | danh sách loại, CID, visibility                                      | Không trả plaintext file mật            |
+| `POST` | `/api/v1/batches/{tokenId}/documents`                | Session + token owner               | multipart file + documentType, visibility → `{cid,sha256,encrypted}` | Chỉ upload, chưa gắn CID trên chain     |
+| `GET`  | `/api/v1/batches/{tokenId}/documents/{type}/content` | Public nếu public; RBAC nếu private | stream PDF/image/JSON                                                | File private giải mã có kiểm soát       |
+| `POST` | `/api/v1/encryption/prices`                          | Sender owner + session              | amount,currency,buyer wallet,tokenId → `0x` bytes envelope           | Mã hóa trước transaction                |
+| `POST` | `/api/v1/encryption/prices/decrypt`                  | Authorized party                    | ciphertext reference → price                                         | Ghi audit, không cache plaintext        |
+| `POST` | `/api/v1/oracle/readings`                            | Oracle device                       | signed payload                                                       | Kiểm chữ ký, timestamp, replay          |
+| `GET`  | `/api/v1/oracle/batches/{tokenId}`                   | Authorized/public summary           | readings + alerts                                                    | Không khẳng định dữ liệu tuyệt đối đúng |
 
 **Tách quyền rõ ràng:** `GET` public cho hồ sơ đã công khai; những chứng từ nhạy cảm mới yêu cầu đăng nhập. Không cần API backend để `POST` một transaction đã ký; trình duyệt gửi qua MetaMask, backend chỉ đọc txReceipt và index events.
 
@@ -659,22 +659,22 @@ Nếu không tìm thấy CID, IPFS timeout hoặc indexer trễ, FE phải thôn
 
 ### 7.4. Mô hình đe dọa và biện pháp
 
-| Rủi ro | Kịch bản | Biện pháp | Test bắt buộc |
-|---|---|---|---|
-| Lạm quyền mint | Ví lạ đăng ký lô | `onlyRole(MANUFACTURER_ROLE)` + admin cấp role | Non-manufacturer mint phải revert |
-| Chuyển NFT trái luồng | Dùng `transferFrom` bypass transferOwnership | Kiểm mọi đường chuyển ERC-721, giới hạn approvals | `transferFrom` trái luồng revert |
-| Bán thuốc quá hạn | Caller sửa UI/client time | Contract dùng `block.timestamp` | Expired transfer revert |
-| Re-mint mã lô đã burn | Tái sử dụng GTIN+batch | `usedBatchKeys` tồn tại vĩnh viễn | Duplicate sau burn revert |
-| Xem trộm giá | Blockchain explorer đọc event | AES-GCM, key riêng, nonce duy nhất | Event không chứa plaintext; giải sai key lỗi |
-| Pinata JWT lộ | Đưa JWT vào React | Backend proxy, env/secret manager, rotate | Build không chứa JWT |
-| Người lạ đọc chứng từ kín | Dùng CID public | Encrypt trước IPFS + RBAC vào key | Anonymous chỉ tải ciphertext; không giải mã |
-| Tráo nội dung chứng từ | Nội dung bị thay | CID content-addressed; lưu hash đối chiếu | Retrieve CID/hash phải khớp |
-| Replay đăng nhập | Reuse signature SIWE | Nonce một lần, TTL, chain/domain binding | Replay nonce bị từ chối |
-| Replay dữ liệu nhiệt độ | Gửi lại sensor payload | Sensor signature + seq/nonce + time window | Duplicate rejected |
-| Indexer sai do reorg | Event ở block orphan | Confirmations, blockHash reconciliation | Xóa/rebuild affected events |
-| Đánh tráo QR | QR dẫn đến trang phishing | Giới hạn host/contract/chain, hiển thị cảnh báo | QR sai chain hoặc contract bị từ chối |
-| Reentrancy ERC721 receiver | NFT chuyển đến smart contract độc hại | CEI, `nonReentrant`, safe receiver review | Adversarial receiver test |
-| Mất API/RPC | Frontend hiển thị nhầm trạng thái | Error states, retry idempotent, read fallback | Timeout không bị đánh dấu counterfeit |
+| Rủi ro                     | Kịch bản                                     | Biện pháp                                         | Test bắt buộc                                |
+| -------------------------- | -------------------------------------------- | ------------------------------------------------- | -------------------------------------------- |
+| Lạm quyền mint             | Ví lạ đăng ký lô                             | `onlyRole(MANUFACTURER_ROLE)` + admin cấp role    | Non-manufacturer mint phải revert            |
+| Chuyển NFT trái luồng      | Dùng `transferFrom` bypass transferOwnership | Kiểm mọi đường chuyển ERC-721, giới hạn approvals | `transferFrom` trái luồng revert             |
+| Bán thuốc quá hạn          | Caller sửa UI/client time                    | Contract dùng `block.timestamp`                   | Expired transfer revert                      |
+| Re-mint mã lô đã burn      | Tái sử dụng GTIN+batch                       | `usedBatchKeys` tồn tại vĩnh viễn                 | Duplicate sau burn revert                    |
+| Xem trộm giá               | Blockchain explorer đọc event                | AES-GCM, key riêng, nonce duy nhất                | Event không chứa plaintext; giải sai key lỗi |
+| Pinata JWT lộ              | Đưa JWT vào React                            | Backend proxy, env/secret manager, rotate         | Build không chứa JWT                         |
+| Người lạ đọc chứng từ kín  | Dùng CID public                              | Encrypt trước IPFS + RBAC vào key                 | Anonymous chỉ tải ciphertext; không giải mã  |
+| Tráo nội dung chứng từ     | Nội dung bị thay                             | CID content-addressed; lưu hash đối chiếu         | Retrieve CID/hash phải khớp                  |
+| Replay đăng nhập           | Reuse signature SIWE                         | Nonce một lần, TTL, chain/domain binding          | Replay nonce bị từ chối                      |
+| Replay dữ liệu nhiệt độ    | Gửi lại sensor payload                       | Sensor signature + seq/nonce + time window        | Duplicate rejected                           |
+| Indexer sai do reorg       | Event ở block orphan                         | Confirmations, blockHash reconciliation           | Xóa/rebuild affected events                  |
+| Đánh tráo QR               | QR dẫn đến trang phishing                    | Giới hạn host/contract/chain, hiển thị cảnh báo   | QR sai chain hoặc contract bị từ chối        |
+| Reentrancy ERC721 receiver | NFT chuyển đến smart contract độc hại        | CEI, `nonReentrant`, safe receiver review         | Adversarial receiver test                    |
+| Mất API/RPC                | Frontend hiển thị nhầm trạng thái            | Error states, retry idempotent, read fallback     | Timeout không bị đánh dấu counterfeit        |
 
 ### 7.5. Checklist secure coding
 
@@ -694,11 +694,11 @@ Nếu không tìm thấy CID, IPFS timeout hoặc indexer trễ, FE phải thôn
 
 ### 8.1. Ba loại file phải có trong demo
 
-| Loại | `DocumentType` | Định dạng | Ví dụ | Bắt buộc |
-|---|---|---|---|---|
-| Certificate of Origin | `CERTIFICATE_OF_ORIGIN` | PDF (`application/pdf`) | `certificate-of-origin.pdf` | Có |
-| Quality certificate/photo | `QUALITY_CERTIFICATE` | JPEG/PNG (`image/jpeg`, `image/png`) | `coa-scan.jpg` | Có |
-| Chemical metadata | `CHEMICAL_METADATA` | JSON (`application/json`) | `chemical-metadata.json` | Có |
+| Loại                      | `DocumentType`          | Định dạng                            | Ví dụ                       | Bắt buộc |
+| ------------------------- | ----------------------- | ------------------------------------ | --------------------------- | -------- |
+| Certificate of Origin     | `CERTIFICATE_OF_ORIGIN` | PDF (`application/pdf`)              | `certificate-of-origin.pdf` | Có       |
+| Quality certificate/photo | `QUALITY_CERTIFICATE`   | JPEG/PNG (`image/jpeg`, `image/png`) | `coa-scan.jpg`              | Có       |
+| Chemical metadata         | `CHEMICAL_METADATA`     | JSON (`application/json`)            | `chemical-metadata.json`    | Có       |
 
 > Đề Word nhắc GMP/COA nói chung, nhưng 3 loại dữ liệu cụ thể là **PDF chứng nhận xuất xứ**, **ảnh chứng từ kiểm định**, **metadata JSON thành phần hóa học**. Đừng thay bằng 3 file PDF; sẽ không đạt điều kiện ba loại file.
 
@@ -751,12 +751,12 @@ Chỉ dùng **thuốc và tài liệu giả lập** khi demo trừ khi đã có 
 
 ### 9.2. Quy tắc trạng thái khi burn
 
-| Trường hợp | Trước burn | Ai ký | Sau burn |
-|---|---|---|---|
-| Bán/phát thuốc hết lô | ACTIVE và ở Pharmacy/Hospital | Owner Pharmacy/Hospital | `CONSUMED`, NFT không tồn tại |
-| Tiêu hủy lô | ACTIVE hoặc EXPIRED | Owner có quyền, theo phê duyệt nếu bật | `DESTROYED`, NFT không tồn tại |
-| Người khác burn | Bất kỳ | Không phải owner | Revert |
-| Burn lại token đã burn | Finalized | Bất kỳ | Revert |
+| Trường hợp             | Trước burn                    | Ai ký                                  | Sau burn                       |
+| ---------------------- | ----------------------------- | -------------------------------------- | ------------------------------ |
+| Bán/phát thuốc hết lô  | ACTIVE và ở Pharmacy/Hospital | Owner Pharmacy/Hospital                | `CONSUMED`, NFT không tồn tại  |
+| Tiêu hủy lô            | ACTIVE hoặc EXPIRED           | Owner có quyền, theo phê duyệt nếu bật | `DESTROYED`, NFT không tồn tại |
+| Người khác burn        | Bất kỳ                        | Không phải owner                       | Revert                         |
+| Burn lại token đã burn | Finalized                     | Bất kỳ                                 | Revert                         |
 
 **Điểm demo bắt buộc:** Sau burn, quét lại QR phải hiển thị “Đã tiêu thụ/tiêu hủy”; `verifyAuthenticity` trả false, chứ không coi token mất là “chưa từng đăng ký”.
 
@@ -877,23 +877,23 @@ drug-supply-chain/
 
 ### 11.3. Phân công cho nhóm 2 hoặc 3 người
 
-| Vai trò | Công việc chủ lực | Deliverable | Phụ thuộc |
-|---|---|---|---|
-| Bạn 1 — Frontend | Wireframe, dashboard, QR, track, form, MetaMask integration | React UI + API client + demo screenshots | Interface/ABI và mock schema |
-| Bạn 2 — Blockchain | Roles, ERC721, register/transfer/verify/burn, tests, deploy | Contract, unit tests, Sepolia address + tx hashes + ABI | Quy tắc nghiệp vụ đã chốt |
-| Bạn 3 — Backend/Security (nếu có) | FastAPI, Web3.py indexer, AES, IPFS RBAC, Oracle | REST API, DB, Pinata & encryption demo | Contract events/ABI, chính sách ACL |
-| Nếu chỉ 2 người | Bạn 1 thêm REST/IPFS UI; Bạn 2 thêm FastAPI/Web3.py + crypto/indexer | Cắt bớt dashboard nâng cao/Oracle anchor, nhưng **không cắt yêu cầu chấm điểm** | Phân chia rõ interface và làm sớm |
+| Vai trò                           | Công việc chủ lực                                                    | Deliverable                                                                     | Phụ thuộc                           |
+| --------------------------------- | -------------------------------------------------------------------- | ------------------------------------------------------------------------------- | ----------------------------------- |
+| Bạn 1 — Frontend                  | Wireframe, dashboard, QR, track, form, MetaMask integration          | React UI + API client + demo screenshots                                        | Interface/ABI và mock schema        |
+| Bạn 2 — Blockchain                | Roles, ERC721, register/transfer/verify/burn, tests, deploy          | Contract, unit tests, Sepolia address + tx hashes + ABI                         | Quy tắc nghiệp vụ đã chốt           |
+| Bạn 3 — Backend/Security (nếu có) | FastAPI, Web3.py indexer, AES, IPFS RBAC, Oracle                     | REST API, DB, Pinata & encryption demo                                          | Contract events/ABI, chính sách ACL |
+| Nếu chỉ 2 người                   | Bạn 1 thêm REST/IPFS UI; Bạn 2 thêm FastAPI/Web3.py + crypto/indexer | Cắt bớt dashboard nâng cao/Oracle anchor, nhưng **không cắt yêu cầu chấm điểm** | Phân chia rõ interface và làm sớm   |
 
 ### 11.4. Quy trình phát triển theo mốc
 
-| Mốc | Kết quả cần đạt | Tiêu chuẩn xong |
-|---|---|---|
-| M0 — Chốt interface | Enums, struct, contract functions, UI schema, API endpoints, role matrix | 2–3 người review cùng một bản đặc tả |
-| M1 — Chạy song song | Contract mock/local, React mock UI, Backend auth/IPFS skeleton | Có test local + giao diện mock điều hướng đầy đủ |
-| M2 — Sepolia | Deploy + ABI + wallets được cấp role | Register, transfer, verify, burn chạy thành công trên Sepolia |
-| M3 — Integration | QR + Timeline + AES + Pinata upload/retrieve | UI hiển thị dữ liệu thực; chứng từ CID khớp; không lộ plaintext |
-| M4 — Security & oracle | RBAC, negative tests, fake sensor | Các case nguy hiểm bị từ chối; demo Oracle minh bạch |
-| M5 — Rehearsal | Chạy end-to-end bằng data chuẩn, ghi video/caption, bằng chứng | Demo ổn định, report/slide đủ rubric |
+| Mốc                    | Kết quả cần đạt                                                          | Tiêu chuẩn xong                                                 |
+| ---------------------- | ------------------------------------------------------------------------ | --------------------------------------------------------------- |
+| M0 — Chốt interface    | Enums, struct, contract functions, UI schema, API endpoints, role matrix | 2–3 người review cùng một bản đặc tả                            |
+| M1 — Chạy song song    | Contract mock/local, React mock UI, Backend auth/IPFS skeleton           | Có test local + giao diện mock điều hướng đầy đủ                |
+| M2 — Sepolia           | Deploy + ABI + wallets được cấp role                                     | Register, transfer, verify, burn chạy thành công trên Sepolia   |
+| M3 — Integration       | QR + Timeline + AES + Pinata upload/retrieve                             | UI hiển thị dữ liệu thực; chứng từ CID khớp; không lộ plaintext |
+| M4 — Security & oracle | RBAC, negative tests, fake sensor                                        | Các case nguy hiểm bị từ chối; demo Oracle minh bạch            |
+| M5 — Rehearsal         | Chạy end-to-end bằng data chuẩn, ghi video/caption, bằng chứng           | Demo ổn định, report/slide đủ rubric                            |
 
 ---
 
@@ -901,35 +901,35 @@ drug-supply-chain/
 
 ### 12.1. Bộ test case tối thiểu
 
-| ID | Mô tả | Kỳ vọng | Liên quan rubric |
-|---|---|---|---|
-| SC-01 | Admin cấp role Manufacturer | Transaction thành công, role đúng | SC constraints |
-| SC-02 | Người không phải Manufacturer gọi register | Revert | SC constraints |
-| SC-03 | Manufacturer đăng ký GTIN+batch mới | Mint 1 NFT, owner đúng, event có | SC + NFT |
-| SC-04 | Đăng ký trùng GTIN+batch cùng Manufacturer | Revert | SC logic |
-| SC-05 | Ngày hết hạn trong quá khứ | Revert | SC logic |
-| SC-06 | Manufacturer → Distributor hợp lệ | Owner + stage thay đổi, event có | SC + DApp + NFT |
-| SC-07 | Distributor → Pharmacy hợp lệ | Owner + stage thay đổi | SC + NFT |
-| SC-08 | Chuyển trái tuyến hoặc recipient chưa được duyệt | Revert | RBAC |
-| SC-09 | Non-owner cố chuyển/burn | Revert | RBAC |
-| SC-10 | `transferFrom` / `safeTransferFrom` trực tiếp bypass | Bị chặn | Security |
-| SC-11 | Lô hết hạn cố chuyển | Revert | SC constraint |
-| SC-12 | Quét một token hợp lệ | `AUTHENTIC`, owner hợp lệ | DApp |
-| SC-13 | Quét token không tồn tại | `NOT_FOUND`, không crash | DApp |
-| SC-14 | Pharmacy burn CONSUMED | NFT burn, status archive còn | NFT |
-| SC-15 | `verifyProduct` sau burn | `CONSUMED`, `verifyAuthenticity=false` | NFT |
-| SC-16 | Mint lại bộ định danh đã burn | Revert | Security |
-| IPFS-01 | Upload PDF | CID trả về, link chain, retrieve đúng | 3 loại + 2 thao tác |
-| IPFS-02 | Upload JPG/PNG | CID trả về, retrieve đúng | 3 loại |
-| IPFS-03 | Upload JSON hợp schema | CID trả về, retrieve đúng | 3 loại |
-| IPFS-04 | Anonymous retrieve file restricted | Không lấy plaintext | IPFS RBAC |
-| IPFS-05 | CID bị sai hoặc Pinata unreachable | UI thông báo lỗi, không fake success | IPFS demo |
-| AES-01 | Transfer kèm encryptedPrice | Event chỉ có ciphertext; bên được phép giải mã | DApp AES |
-| AES-02 | Thay tag/nonce/AAD của ciphertext | Giải mã thất bại | Security AES-GCM |
-| AUTH-01 | Dùng lại SIWE nonce | API từ chối | Security |
-| ORACLE-01 | Reading có chữ ký đúng | Accept | Oracle |
-| ORACLE-02 | Replay/invalid signature | Reject/flag | Oracle |
-| E2E-01 | Toàn luồng Register→Docs→Transfer→Verify→Burn | Thành công trên Sepolia, có chứng cứ | 4 tiêu chí kỹ thuật |
+| ID        | Mô tả                                                | Kỳ vọng                                        | Liên quan rubric    |
+| --------- | ---------------------------------------------------- | ---------------------------------------------- | ------------------- |
+| SC-01     | Admin cấp role Manufacturer                          | Transaction thành công, role đúng              | SC constraints      |
+| SC-02     | Người không phải Manufacturer gọi register           | Revert                                         | SC constraints      |
+| SC-03     | Manufacturer đăng ký GTIN+batch mới                  | Mint 1 NFT, owner đúng, event có               | SC + NFT            |
+| SC-04     | Đăng ký trùng GTIN+batch cùng Manufacturer           | Revert                                         | SC logic            |
+| SC-05     | Ngày hết hạn trong quá khứ                           | Revert                                         | SC logic            |
+| SC-06     | Manufacturer → Distributor hợp lệ                    | Owner + stage thay đổi, event có               | SC + DApp + NFT     |
+| SC-07     | Distributor → Pharmacy hợp lệ                        | Owner + stage thay đổi                         | SC + NFT            |
+| SC-08     | Chuyển trái tuyến hoặc recipient chưa được duyệt     | Revert                                         | RBAC                |
+| SC-09     | Non-owner cố chuyển/burn                             | Revert                                         | RBAC                |
+| SC-10     | `transferFrom` / `safeTransferFrom` trực tiếp bypass | Bị chặn                                        | Security            |
+| SC-11     | Lô hết hạn cố chuyển                                 | Revert                                         | SC constraint       |
+| SC-12     | Quét một token hợp lệ                                | `AUTHENTIC`, owner hợp lệ                      | DApp                |
+| SC-13     | Quét token không tồn tại                             | `NOT_FOUND`, không crash                       | DApp                |
+| SC-14     | Pharmacy burn CONSUMED                               | NFT burn, status archive còn                   | NFT                 |
+| SC-15     | `verifyProduct` sau burn                             | `CONSUMED`, `verifyAuthenticity=false`         | NFT                 |
+| SC-16     | Mint lại bộ định danh đã burn                        | Revert                                         | Security            |
+| IPFS-01   | Upload PDF                                           | CID trả về, link chain, retrieve đúng          | 3 loại + 2 thao tác |
+| IPFS-02   | Upload JPG/PNG                                       | CID trả về, retrieve đúng                      | 3 loại              |
+| IPFS-03   | Upload JSON hợp schema                               | CID trả về, retrieve đúng                      | 3 loại              |
+| IPFS-04   | Anonymous retrieve file restricted                   | Không lấy plaintext                            | IPFS RBAC           |
+| IPFS-05   | CID bị sai hoặc Pinata unreachable                   | UI thông báo lỗi, không fake success           | IPFS demo           |
+| AES-01    | Transfer kèm encryptedPrice                          | Event chỉ có ciphertext; bên được phép giải mã | DApp AES            |
+| AES-02    | Thay tag/nonce/AAD của ciphertext                    | Giải mã thất bại                               | Security AES-GCM    |
+| AUTH-01   | Dùng lại SIWE nonce                                  | API từ chối                                    | Security            |
+| ORACLE-01 | Reading có chữ ký đúng                               | Accept                                         | Oracle              |
+| ORACLE-02 | Replay/invalid signature                             | Reject/flag                                    | Oracle              |
+| E2E-01    | Toàn luồng Register→Docs→Transfer→Verify→Burn        | Thành công trên Sepolia, có chứng cứ           | 4 tiêu chí kỹ thuật |
 
 ### 12.2. Chiến lược để đáp ứng “tối đa 1 lỗi giao dịch trong demo”
 
@@ -959,31 +959,31 @@ Rubric Excel ghi **“Tối đa 1 lỗi giao dịch trong demo”**. Do đó:
 
 **Nguồn bảng:** `Rubik_Blockchain.xlsx`, sheet `Sheet1`, dòng 2–28; đối chiếu `YeuCauDeTai_Blockchain.docx`. Điểm dưới đây là **trọng số rubric**, không phải điểm đã đạt.
 
-| ID | Nhóm/Điểm | Điều kiện trong nguồn | Nơi thiết kế đáp ứng | Bằng chứng phải nộp |
-|---|---:|---|---|---|
-| R1.1 | SC — 10 | ≥3 nghiệp vụ chính | §3.3, §3.5 | Register, transfer, verify tx/call |
-| R1.2 | SC — 10 | ≥2 logic constraints, giải thích kỹ thuật | §3.4–3.5, §7 | Role-only mint; no transfer expired/consumed; tests |
-| R1.3 | SC — 10 | Deploy/test testnet | §11, §12 | Sepolia address, explorer, test output |
-| R1.4 | SC — 10 | Giải thích chức năng contract | §3.1–3.6 | Source walkthrough và báo cáo |
-| R2.1 | DApp — 10 | ≥3 chức năng on-chain: gửi, đọc, hiển thị trạng thái | §4–6 | Video/screenshots Register, Transfer, Verify, state |
-| R2.2 | DApp — 10 | Tối đa 1 lỗi giao dịch trong demo | §4.3, §12.2 | Kịch bản preflight + rehearsal |
-| R2.3 | DApp — 10 | Mã hóa input/output nhạy cảm AES/RSA/... | §7.2 | On-chain ciphertext; demo decrypt authorized |
-| R3.1 | IPFS — 10 | ≥3 loại: PDF, ảnh, JSON | §8.1–8.2 | Ba CID/file mẫu khác loại |
-| R3.2 | IPFS — 10 | ≥2 thao tác upload + retrieve | §6.3, §8.3 | Video upload/retrieve/hash match |
-| R3.3 | IPFS — 10 | Role-based access control tài nguyên | §5.2, §7.3 | Auth + denial test; file encrypted nếu restricted |
-| R3.4 | IPFS — 10 | Demo truy xuất thành công | §8.3, §12 | CID from contract → retrieve file |
-| R4.1 | Token — 10 | Ít nhất 1 ERC-20 hoặc NFT contract | §3, §9 | ERC-721 deploy, minted token |
-| R4.2 | Token — 10 | ≥2 nghiệp vụ dùng token | §9 | Mint, transfer, verify, burn |
-| R4.3 | Token — 10 | Có test hoặc demo giao dịch | §12 | NFT test + tx links |
-| R5.1 | Báo cáo/Thuyết trình — 10 | Không lỗi chính tả | §14 | Kiểm tra nội dung trước nộp |
-| R5.2 | Báo cáo/Thuyết trình — 10 | Số slide, số trang | §14 | Có mục lục/chỉ số trang; rubric **không định mức cụ thể** |
-| R5.3 | Báo cáo/Thuyết trình — 10 | Caption cho hình ảnh, bảng | §14 | Figure/Table captions |
-| R5.4 | Báo cáo/Thuyết trình — 10 | Bảng chữ viết tắt | §14.2 | Glossary/abbreviations |
-| R5.5 | Báo cáo/Thuyết trình — 10 | Tài liệu tham khảo | §14.3 | References đúng link/tác giả/năm truy cập |
-| R5.6 | Báo cáo/Thuyết trình — 10 | Cỡ chữ **slide > 18**, **Word > 14** | §14.1 | Kiểm trực tiếp trong slide/docx |
-| R5.7 | Báo cáo/Thuyết trình — 10 | Background và foreground tương phản | §14.1 | Ảnh slide mẫu, high contrast |
-| R5.8 | Báo cáo/Thuyết trình — 10 | Có thể dùng video, phải có caption | §14.1 | Video kèm subtitle/caption nếu sử dụng |
-| R-extra | Đề Word (không có cột điểm riêng) | Oracle giải thích dữ liệu nhiệt độ đáng tin cậy ra sao | §10 | Mô phỏng signed reading + limitation |
+| ID      |                         Nhóm/Điểm | Điều kiện trong nguồn                                  | Nơi thiết kế đáp ứng | Bằng chứng phải nộp                                       |
+| ------- | --------------------------------: | ------------------------------------------------------ | -------------------- | --------------------------------------------------------- |
+| R1.1    |                           SC — 10 | ≥3 nghiệp vụ chính                                     | §3.3, §3.5           | Register, transfer, verify tx/call                        |
+| R1.2    |                           SC — 10 | ≥2 logic constraints, giải thích kỹ thuật              | §3.4–3.5, §7         | Role-only mint; no transfer expired/consumed; tests       |
+| R1.3    |                           SC — 10 | Deploy/test testnet                                    | §11, §12             | Sepolia address, explorer, test output                    |
+| R1.4    |                           SC — 10 | Giải thích chức năng contract                          | §3.1–3.6             | Source walkthrough và báo cáo                             |
+| R2.1    |                         DApp — 10 | ≥3 chức năng on-chain: gửi, đọc, hiển thị trạng thái   | §4–6                 | Video/screenshots Register, Transfer, Verify, state       |
+| R2.2    |                         DApp — 10 | Tối đa 1 lỗi giao dịch trong demo                      | §4.3, §12.2          | Kịch bản preflight + rehearsal                            |
+| R2.3    |                         DApp — 10 | Mã hóa input/output nhạy cảm AES/RSA/...               | §7.2                 | On-chain ciphertext; demo decrypt authorized              |
+| R3.1    |                         IPFS — 10 | ≥3 loại: PDF, ảnh, JSON                                | §8.1–8.2             | Ba CID/file mẫu khác loại                                 |
+| R3.2    |                         IPFS — 10 | ≥2 thao tác upload + retrieve                          | §6.3, §8.3           | Video upload/retrieve/hash match                          |
+| R3.3    |                         IPFS — 10 | Role-based access control tài nguyên                   | §5.2, §7.3           | Auth + denial test; file encrypted nếu restricted         |
+| R3.4    |                         IPFS — 10 | Demo truy xuất thành công                              | §8.3, §12            | CID from contract → retrieve file                         |
+| R4.1    |                        Token — 10 | Ít nhất 1 ERC-20 hoặc NFT contract                     | §3, §9               | ERC-721 deploy, minted token                              |
+| R4.2    |                        Token — 10 | ≥2 nghiệp vụ dùng token                                | §9                   | Mint, transfer, verify, burn                              |
+| R4.3    |                        Token — 10 | Có test hoặc demo giao dịch                            | §12                  | NFT test + tx links                                       |
+| R5.1    |         Báo cáo/Thuyết trình — 10 | Không lỗi chính tả                                     | §14                  | Kiểm tra nội dung trước nộp                               |
+| R5.2    |         Báo cáo/Thuyết trình — 10 | Số slide, số trang                                     | §14                  | Có mục lục/chỉ số trang; rubric **không định mức cụ thể** |
+| R5.3    |         Báo cáo/Thuyết trình — 10 | Caption cho hình ảnh, bảng                             | §14                  | Figure/Table captions                                     |
+| R5.4    |         Báo cáo/Thuyết trình — 10 | Bảng chữ viết tắt                                      | §14.2                | Glossary/abbreviations                                    |
+| R5.5    |         Báo cáo/Thuyết trình — 10 | Tài liệu tham khảo                                     | §14.3                | References đúng link/tác giả/năm truy cập                 |
+| R5.6    |         Báo cáo/Thuyết trình — 10 | Cỡ chữ **slide > 18**, **Word > 14**                   | §14.1                | Kiểm trực tiếp trong slide/docx                           |
+| R5.7    |         Báo cáo/Thuyết trình — 10 | Background và foreground tương phản                    | §14.1                | Ảnh slide mẫu, high contrast                              |
+| R5.8    |         Báo cáo/Thuyết trình — 10 | Có thể dùng video, phải có caption                     | §14.1                | Video kèm subtitle/caption nếu sử dụng                    |
+| R-extra | Đề Word (không có cột điểm riêng) | Oracle giải thích dữ liệu nhiệt độ đáng tin cậy ra sao | §10                  | Mô phỏng signed reading + limitation                      |
 
 **Cách đọc điểm:** Mỗi nhóm R1–R5 tối đa **10 điểm**, không phải mỗi dòng chi tiết 10 điểm. File rubric **không nêu thang chia điểm con** cho từng dòng; nhóm không nên tự gán tỷ trọng rồi coi là quy định của giảng viên.
 
@@ -1004,24 +1004,24 @@ Rubric Excel ghi **“Tối đa 1 lỗi giao dịch trong demo”**. Do đó:
 
 ### 14.2. Bảng viết tắt dùng cho báo cáo
 
-| Viết tắt | Diễn giải |
-|---|---|
-| DApp | Decentralized Application |
-| EVM | Ethereum Virtual Machine |
-| NFT | Non-Fungible Token |
-| ERC-721 | Chuẩn token không thể thay thế trên Ethereum |
-| ABI | Application Binary Interface |
-| GTIN | Global Trade Item Number |
-| CID | Content Identifier (IPFS) |
-| IPFS | InterPlanetary File System |
-| AES-GCM | Authenticated Encryption with Associated Data (AES/GCM) |
-| RBAC | Role-Based Access Control |
-| RPC | Remote Procedure Call |
-| SIWE | Sign-In with Ethereum |
-| CO | Certificate of Origin |
-| COA | Certificate of Analysis |
-| GMP | Good Manufacturing Practice |
-| Oracle | Cơ chế đưa dữ liệu ngoài chuỗi đến hệ thống Blockchain |
+| Viết tắt | Diễn giải                                               |
+| -------- | ------------------------------------------------------- |
+| DApp     | Decentralized Application                               |
+| EVM      | Ethereum Virtual Machine                                |
+| NFT      | Non-Fungible Token                                      |
+| ERC-721  | Chuẩn token không thể thay thế trên Ethereum            |
+| ABI      | Application Binary Interface                            |
+| GTIN     | Global Trade Item Number                                |
+| CID      | Content Identifier (IPFS)                               |
+| IPFS     | InterPlanetary File System                              |
+| AES-GCM  | Authenticated Encryption with Associated Data (AES/GCM) |
+| RBAC     | Role-Based Access Control                               |
+| RPC      | Remote Procedure Call                                   |
+| SIWE     | Sign-In with Ethereum                                   |
+| CO       | Certificate of Origin                                   |
+| COA      | Certificate of Analysis                                 |
+| GMP      | Good Manufacturing Practice                             |
+| Oracle   | Cơ chế đưa dữ liệu ngoài chuỗi đến hệ thống Blockchain  |
 
 ### 14.3. Nguồn tham khảo kỹ thuật nên trích khi viết báo cáo
 
