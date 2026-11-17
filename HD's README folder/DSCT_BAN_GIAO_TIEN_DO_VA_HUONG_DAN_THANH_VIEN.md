@@ -4,12 +4,10 @@
 
 **Nguồn đối chiếu:**
 
-- `IS355-Project.zip` – snapshot source code được gửi trong cuộc trò chuyện.
+- `IS355-Project` – snapshot source code được gửi trong cuộc trò chuyện.
 - `InstructionI.docx` – hướng dẫn/ghi nhận các bước chuẩn bị ví, Sepolia, Alchemy, deploy contract, cấp quyền và tích hợp Frontend.
 - `Drug_Supply_Chain_System_Design.md` – đặc tả kiến trúc và tiêu chí hoàn thành hệ thống.
 - Ảnh bảng TASK-01 đến TASK-20.
-
-> **Nguyên tắc đọc trạng thái:** “Đã có code” không đồng nghĩa “đã kiểm thử end-to-end”. Những mục chưa có tx hash, ảnh, log hoặc kết quả kiểm thử trong hồ sơ được đánh dấu cần xác minh trước demo.
 
 ---
 
@@ -17,7 +15,7 @@
 
 Dự án đã hoàn thành nền tảng Blockchain và phần lớn khung Frontend Live Mode. Smart Contract đã được biên dịch, có bộ 16 unit test, đã triển khai lên Sepolia, cấp bốn role và đồng bộ ABI với Frontend. Frontend đã có MetaMask connection, đọc role từ contract, trang Track & Trace, QR scan/manual verification và các thao tác Register/Transfer/Burn/Document CID ở mức code.
 
-**Khoảng trống lớn nhất hiện tại là Backend và tích hợp IPFS thực tế.** Trong source ZIP chưa có thư mục `backend/`, chưa có FastAPI, Web3.py indexer, database, Pinata adapter, RBAC tài liệu hoặc Oracle simulator. Ba file Frontend `api.ts`, `wallet.ts`, `metadata.ts` đã có code client, nhưng API server mà chúng gọi chưa có trong repository.
+**Khoảng trống lớn nhất hiện tại là Backend và tích hợp IPFS thực tế.** Trong source chưa có thư mục `backend/`, chưa có FastAPI, Web3.py indexer, database, Pinata adapter, RBAC tài liệu hoặc Oracle simulator. Ba file Frontend `api.ts`, `wallet.ts`, `metadata.ts` đã có code client, nhưng API server mà chúng gọi chưa có trong repository.
 
 ### 1.1. Tóm tắt theo mức độ
 
@@ -289,7 +287,7 @@ TASK-20 gồm GPS thực, chia/ghép lô, QR chống sao chép nâng cao hoặc 
 ### 6.1. Nhận source đúng cách
 
 ```bash
-git clone <URL_REPOSITORY_CUA_NHOM>
+git clone....
 cd IS355-Project
 git pull
 ```

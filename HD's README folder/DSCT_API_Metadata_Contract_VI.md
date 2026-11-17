@@ -4,10 +4,6 @@
 **Phạm vi:** Frontend xác thực ví với FastAPI, gửi thông tin lô thuốc để Backend tạo NFT Metadata JSON, upload lên IPFS thông qua Pinata và trả CID về cho Frontend.  
 **Ngoài phạm vi:** Tích hợp API vào form `ManagePage.tsx`, upload ba loại tài liệu của lô thuốc, đăng ký/mint NFT trên Blockchain và triển khai Backend.
 
-> **Trạng thái tài liệu:** Đây là API Contract đề xuất. Thành viên Backend cần xác nhận và triển khai đúng endpoint, tên trường, kiểu dữ liệu, cấu trúc response và mã lỗi trong tài liệu này. Nếu Backend đã có API khác, hai bên cần thống nhất cập nhật tài liệu trước khi tích hợp.
-
----
-
 ## 1. Phân chia trách nhiệm
 
 | Thành phần               | Trách nhiệm                                                                                                                                                                                    |
@@ -296,7 +292,7 @@ Tất cả lỗi sử dụng envelope ở mục 3.2.
 
 ## 6. Quy trình phối hợp sau khi Backend triển khai API
 
-Quy trình tích hợp dự kiến (không thuộc phạm vi ba file service được bàn giao ở lần này):
+Quy trình tích hợp dự kiến :
 
 1. Frontend kết nối MetaMask; phần `chain.ts` hiện tại kiểm tra Sepolia và đọc Role on-chain.
 2. Frontend gọi `authenticateWallet()` trong `wallet.ts` để xác thực cùng địa chỉ ví với Backend.
@@ -343,5 +339,3 @@ Quy trình tích hợp dự kiến (không thuộc phạm vi ba file service đ�
 5. Backend có kiểm tra Role Manufacturer trực tiếp từ Sepolia Contract không?
 6. Backend có hỗ trợ `Idempotency-Key` để tránh pin Metadata trùng khi retry không?
 7. Tên các trường và ràng buộc trong request/response có khớp tài liệu này không?
-
-Chỉ sau khi các điểm trên được thống nhất, hai bên mới nên coi đây là API Contract dùng chung đã chốt.
