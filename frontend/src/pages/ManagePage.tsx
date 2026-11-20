@@ -1,7 +1,16 @@
-import { useEffect, useState } from "react";
-
-import type { TransactionResponse } from "ethers";
-
+import { useEffect, useRef, useState } from "react";
+import { getAddress, type TransactionResponse } from "ethers";
+import {
+  uploadDocument,
+  recoverPendingDocument,
+  type DocumentType
+} from "../services/documents";
+import { authenticateWallet } from "../services/wallet";
+import {
+  createMedicineMetadata,
+  createMetadataIdempotencyKey,
+  type CreateMedicineMetadataRequest
+} from "../services/metadata";
 import type { Batch, WalletState } from "../types";
 import {
   burnBatch,
@@ -12,10 +21,27 @@ import {
   setDocument,
   short,
   transferBatch,
+  updateParticipant,
 } from "../services/chain";
 import { Field, Icon } from "../components/Ui";
 
 type Operation = "register" | "transfer" | "dispense" | "documents";
+const DOCUMENT_TYPES: DocumentType[] = [
+  "CERTIFICATE_OF_ORIGIN",
+  "QUALITY_CERTIFICATE",
+  "CHEMICAL_METADATA"
+];
+type DocumentSelection = { id: string; kind: 0 | 1 | 2; visibility: "PUBLIC" | "RESTRICTED" };
+
+function readDocumentSelection(key: string): DocumentSelection {
+  try {
+    const saved = JSON.parse(sessionStorage.getItem(key) || "null");
+    if (saved && typeof saved.id === "string" && [0, 1, 2].includes(saved.kind)
+        && ["PUBLIC", "RESTRICTED"].includes(saved.visibility)) return saved;
+  } catch { /* Storage can be disabled by the browser. */ }
+  return { id: "", kind: 0, visibility: "PUBLIC" };
+}
+
 export default function ManagePage({
   wallet,
   batches,
@@ -30,11 +56,12 @@ export default function ManagePage({
   ) => Promise<void>;
   recent: { title: string; hash: string; status: string }[];
 }) {
+  const upstream = wallet.role === "MANUFACTURER" || wallet.role === "DISTRIBUTOR";
   const allowed: Operation[] =
     wallet.role === "MANUFACTURER"
-      ? ["register", "transfer", "documents"]
+      ? ["register", "transfer", "dispense", "documents"]
       : wallet.role === "DISTRIBUTOR"
-        ? ["transfer", "documents"]
+        ? ["transfer", "dispense", "documents"]
         : wallet.role === "PHARMACY" || wallet.role === "HOSPITAL"
           ? ["dispense", "documents"]
           : [];
@@ -49,18 +76,37 @@ export default function ManagePage({
     metadataCID: "",
   });
   const [submitting, setSubmitting] = useState(false);
+  const [metadataUploading, setMetadataUploading] = useState(false);
+  const metadataRequestRef = useRef<{
+    fingerprint: string;
+    key: string;
+  } | null>(null);
+  const storageKey = ["document-selection", 11155111, import.meta.env.VITE_CONTRACT_ADDRESS, wallet.address.toLowerCase()].join(":");
+  const [initialSelection] = useState(() => readDocumentSelection(storageKey));
+  const [visibility, setVisibility] = useState(initialSelection.visibility);
+  const [documentFile, setDocumentFile] = useState<File | null>(null);
+  const documentPicker = useRef<HTMLInputElement>(null);
+  const [uploadingDocument, setUploadingDocument] = useState(false);
+  const [documentUploadStatus, setDocumentUploadStatus] = useState<
+  "UPLOADED_NOT_LINKED" | "LINKED" | null
+  >(null);
   const [transfer, setTransfer] = useState({
     id: "",
     recipient: "",
     price: "",
-    secret: "",
   });
-  const [burn, setBurn] = useState({ id: "", outcome: 1 as 1 | 2 });
+  const [burn, setBurn] = useState({ id: "", outcome: (upstream ? 2 : 1) as 1 | 2 });
   const [document, setDocumentForm] = useState({
-    id: "",
-    kind: 0 as 0 | 1 | 2,
+    id: initialSelection.id,
+    kind: initialSelection.kind,
     cid: "",
   });
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(storageKey, JSON.stringify({ id: document.id, kind: document.kind, visibility }));
+    } catch { /* Recovery remains available by selecting the batch manually. */ }
+  }, [storageKey, document.id, document.kind, visibility]);
+  const [participant, setParticipant] = useState({address: "", role: 1, organization: "", active: true});
   const [selectedBatch, setSelectedBatch] = useState<Batch | null>(null);
   useEffect(() => {
     if (!allowed.includes(op)) setOp(allowed[0] || "register");
@@ -75,6 +121,203 @@ export default function ManagePage({
     );
     setSelectedBatch(b || null);
   }, [burn.id, batches]);
+
+async function handleDocumentUpload(recover = false) {
+  if (!recover && !documentFile) {
+    setError("Vui lòng chọn file chứng từ.");
+    return;
+  }
+
+  setError("");
+  setUploadingDocument(true);
+
+  try {
+    const batch = await resolveBatch(document.id, batches);
+
+    const session = await authenticateWallet();
+
+    if (
+      getAddress(session.address) !== getAddress(wallet.address)
+    ) {
+      throw new Error(
+        "Ví xác thực Backend không khớp với ví đang dùng trên giao diện."
+      );
+    }
+
+    const kind = DOCUMENT_TYPES[document.kind];
+    const result = recover
+      ? await recoverPendingDocument(batch.tokenId, kind, visibility)
+      : await uploadDocument(batch.tokenId, kind, documentFile!, visibility);
+
+    setDocumentFile(null);
+    if (documentPicker.current) documentPicker.current.value = "";
+    setDocumentForm((previous) => ({
+      ...previous,
+      id: batch.tokenId,
+      cid: result.cid
+    }));
+    setDocumentUploadStatus("UPLOADED_NOT_LINKED");
+    } catch (error) {
+      setError(String((error as Error).message || error));
+    } finally {
+      setUploadingDocument(false);
+    }
+  }
+  function updateRegistrationField(
+    field: keyof CreateMedicineMetadataRequest,
+    value: string
+  ) {
+    setReg((previous) => ({
+      ...previous,
+      [field]: value,
+      metadataCID: ""
+    }));
+
+    metadataRequestRef.current = null;
+  }
+
+async function handleGenerateMetadata() {
+  if (submitting || metadataUploading) return;
+
+  if (reg.metadataCID.trim()) {
+    setError("Đã có Metadata CID. Hãy xóa CID nếu muốn tạo metadata mới.");
+    return;
+  }
+
+  const payload: CreateMedicineMetadataRequest = {
+    gtin: reg.gtin,
+    batchNumber: reg.batchNumber,
+    medicineName: reg.medicineName,
+    manufactureDate: reg.manufactureDate,
+    expiryDate: reg.expiryDate
+  };
+
+  if (Object.values(payload).some((value) => !value.trim())) {
+    setError("Vui lòng nhập đầy đủ thông tin lô thuốc trước khi tạo Metadata.");
+    return;
+  }
+
+  setError("");
+  setMetadataUploading(true);
+
+  try {
+    const session = await authenticateWallet();
+
+    if (getAddress(session.address) !== getAddress(wallet.address)) {
+      throw new Error("Ví xác thực Backend không khớp với ví đang kết nối.");
+    }
+
+    const fingerprint = JSON.stringify(payload);
+
+    if (
+      !metadataRequestRef.current ||
+      metadataRequestRef.current.fingerprint !== fingerprint
+    ) {
+      metadataRequestRef.current = {
+        fingerprint,
+        key: createMetadataIdempotencyKey()
+      };
+    }
+
+    const result = await createMedicineMetadata(
+      payload,
+      metadataRequestRef.current.key
+    );
+
+      setReg((previous) => ({
+        ...previous,
+        metadataCID: result.metadataCID
+      }));
+    } catch (error) {
+      setError(String((error as Error).message || error));
+    } finally {
+      setMetadataUploading(false);
+    }
+  }
+
+function validateRegistration(): string | null {
+  if (!/^[0-9]{14}$/.test(reg.gtin)) {
+    return "GTIN must contain exactly 14 digits.";
+  }
+
+  if (
+    !reg.batchNumber.trim() ||
+    reg.batchNumber.trim().length > 64
+  ) {
+    return "Batch Number must contain 1–64 characters.";
+  }
+
+  if (
+    !reg.medicineName.trim() ||
+    reg.medicineName.trim().length > 120
+  ) {
+    return "Drug Name must contain 1–120 characters.";
+  }
+
+  const validDate = (value: string) => {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+
+    const parsed = new Date(`${value}T00:00:00Z`);
+
+    return (
+      !Number.isNaN(parsed.getTime()) &&
+      parsed.toISOString().slice(0, 10) === value
+    );
+  };
+
+  if (
+    !validDate(reg.manufactureDate) ||
+    !validDate(reg.expiryDate)
+  ) {
+    return "Invalid manufacture or expiry date.";
+  }
+
+  const today = new Date().toISOString().slice(0, 10);
+
+  if (
+    reg.manufactureDate > today ||
+    reg.expiryDate <= today ||
+    reg.expiryDate <= reg.manufactureDate
+  ) {
+    return "Manufacture or expiry date is not valid.";
+  }
+
+  if (!reg.metadataCID.trim()) {
+    return "NFT Metadata CID is required.";
+  }
+
+  return null;
+}
+
+async function handleRegister() {
+  if (submitting || metadataUploading) return;
+
+  const validationError = validateRegistration();
+
+  if (validationError) {
+    setError(validationError);
+    return;
+  }
+
+  const confirmed = await submit(
+    "Register Medicine",
+    () => registerMedicine(reg)
+  );
+
+  if (!confirmed) return;
+
+  setReg({
+    gtin: "",
+    batchNumber: "",
+    medicineName: "",
+    manufactureDate: new Date().toISOString().slice(0, 10),
+    expiryDate: "",
+    metadataCID: ""
+  });
+
+  metadataRequestRef.current = null;
+}
+
   async function submit(
     title: string,
     send: () => Promise<TransactionResponse>,
@@ -137,7 +380,7 @@ export default function ManagePage({
                       : x === "transfer"
                         ? "Transfer"
                         : x === "dispense"
-                          ? "Dispense"
+                          ? (upstream ? "Destroy" : "Dispense")
                           : "Documents"}
                   </strong>
                   <small>
@@ -146,7 +389,7 @@ export default function ManagePage({
                       : x === "transfer"
                         ? "Manufacturer / Distributor"
                         : x === "dispense"
-                          ? "Pharmacy / Hospital"
+                          ? (upstream ? "Current owner" : "Pharmacy / Hospital")
                           : "Current owner"}
                   </small>
                 </span>
@@ -154,7 +397,7 @@ export default function ManagePage({
             ))
           ) : (
             <div className="rail-message">
-              Read-only access. Use Track &amp; Trace or Scan QR.
+              {wallet.isAdmin ? "Admin access" : "Read-only access. Use Track & Trace or Scan QR."}
             </div>
           )}
         </div>
@@ -179,7 +422,29 @@ export default function ManagePage({
       </aside>
       <main className="manage-main">
         <div className="manage-inner">
-          {allowed.length === 0 ? (
+          {wallet.isAdmin && <form onSubmit={event => {
+            event.preventDefault();
+            void submit(participant.active ? "Grant participant role" : "Deactivate participant",
+              () => updateParticipant(participant.address, participant.role, participant.organization, participant.active));
+          }}>
+            <h1>Participant administration</h1>
+            <Field label="Participant wallet"><input required value={participant.address}
+              onChange={e => setParticipant({...participant, address: e.target.value})}/></Field>
+            <Field label="Participant role"><select value={participant.role}
+              onChange={e => setParticipant({...participant, role: Number(e.target.value)})}>
+              {["Manufacturer", "Distributor", "Pharmacy", "Hospital"].map((role, i) =>
+                <option key={role} value={i + 1}>{role}</option>)}
+            </select></Field>
+            <Field label="Organization"><input required={participant.active} value={participant.organization}
+              onChange={e => setParticipant({...participant, organization: e.target.value})}/></Field>
+            <Field label="Access"><select value={participant.active ? "active" : "inactive"}
+              onChange={e => setParticipant({...participant, active: e.target.value === "active"})}>
+              <option value="active">Active</option><option value="inactive">Inactive</option>
+            </select></Field>
+            <button className="button primary full" disabled={submitting}>Review participant update in wallet</button>
+            {error && !allowed.length && <p role="alert">{error}</p>}
+          </form>}
+          {allowed.length === 0 ? (wallet.isAdmin ? null :
             <div className="read-only">
               <h1>Read-only account</h1>
               <p>
@@ -197,7 +462,7 @@ export default function ManagePage({
                   : op === "transfer"
                     ? "Transfer Ownership"
                     : op === "dispense"
-                      ? "Dispense Medicine"
+                      ? (upstream ? "Destroy Medicine" : "Dispense Medicine")
                       : "Document CID"}
               </h1>
               <p className="manage-description">
@@ -228,9 +493,7 @@ export default function ManagePage({
                 <form
                   onSubmit={(e) => {
                     e.preventDefault();
-                    void submit("Register Medicine", () =>
-                      registerMedicine(reg),
-                    );
+                    void handleRegister();
                   }}
                 >
                   <div className="form-grid">
@@ -244,8 +507,9 @@ export default function ManagePage({
                         inputMode="numeric"
                         value={reg.gtin}
                         onChange={(e) =>
-                          setReg({ ...reg, gtin: e.target.value })
+                          updateRegistrationField("gtin", e.target.value)
                         }
+                        disabled={metadataUploading || submitting}
                         placeholder="03459876012345"
                       />
                     </Field>
@@ -258,8 +522,9 @@ export default function ManagePage({
                         required
                         value={reg.batchNumber}
                         onChange={(e) =>
-                          setReg({ ...reg, batchNumber: e.target.value })
+                          updateRegistrationField("batchNumber", e.target.value)
                         }
+                        disabled={metadataUploading || submitting}
                         placeholder="BT-2024-00842"
                       />
                     </Field>
@@ -269,8 +534,9 @@ export default function ManagePage({
                         type="date"
                         value={reg.manufactureDate}
                         onChange={(e) =>
-                          setReg({ ...reg, manufactureDate: e.target.value })
+                          updateRegistrationField("manufactureDate", e.target.value)
                         }
+                        disabled={metadataUploading || submitting}
                       />
                     </Field>
                     <Field
@@ -283,8 +549,9 @@ export default function ManagePage({
                         type="date"
                         value={reg.expiryDate}
                         onChange={(e) =>
-                          setReg({ ...reg, expiryDate: e.target.value })
+                          updateRegistrationField("expiryDate", e.target.value)
                         }
+                        disabled={metadataUploading || submitting}
                       />
                     </Field>
                   </div>
@@ -293,11 +560,27 @@ export default function ManagePage({
                       required
                       value={reg.medicineName}
                       onChange={(e) =>
-                        setReg({ ...reg, medicineName: e.target.value })
+                        updateRegistrationField("medicineName", e.target.value)
                       }
+                      disabled={metadataUploading || submitting}
                       placeholder="Amoxicillin 500mg"
                     />
                   </Field>
+                  <button
+                    type="button"
+                    className="button full"
+                    disabled={
+                      metadataUploading ||
+                      submitting ||
+                      !configured ||
+                      Boolean(reg.metadataCID.trim())
+                    }
+                    onClick={() => void handleGenerateMetadata()}
+                  >
+                    {metadataUploading
+                      ? "Generating NFT Metadata..."
+                      : "Generate NFT Metadata on IPFS"}
+                  </button>
                   <Field
                     label="Metadata CID"
                     required
@@ -306,9 +589,11 @@ export default function ManagePage({
                     <input
                       required
                       value={reg.metadataCID}
-                      onChange={(e) =>
-                        setReg({ ...reg, metadataCID: e.target.value })
-                      }
+                      onChange={(e) => {
+                        setReg({ ...reg, metadataCID: e.target.value });
+                        metadataRequestRef.current = null;
+                      }}
+                      readOnly={metadataUploading || submitting}
                       placeholder="bafy..."
                     />
                   </Field>
@@ -319,7 +604,7 @@ export default function ManagePage({
                   <button
                     className="button primary full submit-button"
                     type="submit"
-                    disabled={submitting || !configured}
+                    disabled={submitting || metadataUploading || !configured}
                   >
                     <Icon name="c276b" size={17} />
                     {submitting ? "Submitting..." : "Register Medicine Batch"}
@@ -338,7 +623,6 @@ export default function ManagePage({
                             b.tokenId,
                             transfer.recipient,
                             transfer.price,
-                            transfer.secret,
                           ),
                         );
                       } catch (err) {
@@ -393,22 +677,6 @@ export default function ManagePage({
                         placeholder="24.50"
                       />
                     </Field>
-                    <Field
-                      label="AES Passphrase"
-                      required
-                      hint="Share securely with the authorized recipient"
-                    >
-                      <input
-                        required
-                        type="password"
-                        autoComplete="off"
-                        value={transfer.secret}
-                        onChange={(e) =>
-                          setTransfer({ ...transfer, secret: e.target.value })
-                        }
-                        placeholder="Enter a strong passphrase"
-                      />
-                    </Field>
                   </div>
                   <div className="validation-card">
                     <strong>Pre-transfer validation</strong>
@@ -423,7 +691,7 @@ export default function ManagePage({
                   </div>
                   <div className="notice blue">
                     <Icon name="fc6e7" size={18} />
-                    <span>{hint} Price is AES-256-GCM encrypted locally.</span>
+                    <span>{hint} The backend encrypts the price with AES-256-GCM before wallet confirmation.</span>
                   </div>
                   <button
                     className="button primary full submit-button"
@@ -440,6 +708,13 @@ export default function ManagePage({
                     void (async () => {
                       try {
                         const b = await resolveBatch(burn.id, batches);
+                        if (b.lifecycle !== 0 || b.owner.toLowerCase() !== wallet.address.toLowerCase()
+                            || b.ownerRole !== wallet.role || (upstream && burn.outcome !== 2)) {
+                          throw new Error("Only the active owner at this stage can finalize this batch.");
+                        }
+                        if (burn.outcome === 1 && b.expiryDate <= Date.now() / 1000) {
+                          throw new Error("Expired batches cannot be dispensed.");
+                        }
                         await submit(
                           burn.outcome === 1
                             ? "Dispense Medicine"
@@ -455,7 +730,7 @@ export default function ManagePage({
                   <Field
                     label="Batch ID to Finalize"
                     required
-                    hint="Must be a batch currently held by this pharmacy or hospital"
+                    hint="Must be an active batch held by your wallet"
                   >
                     <input
                       required
@@ -503,9 +778,7 @@ export default function ManagePage({
                         })
                       }
                     >
-                      <option value={1}>
-                        Consumed — entire batch dispensed
-                      </option>
+                      {!upstream && <option value={1}>Consumed — entire batch dispensed</option>}
                       <option value={2}>Destroyed — batch disposed</option>
                     </select>
                   </Field>
@@ -533,64 +806,132 @@ export default function ManagePage({
                 <form
                   onSubmit={(e) => {
                     e.preventDefault();
-                    void (async () => {
-                      try {
-                        const b = await resolveBatch(document.id, batches);
-                        await submit("Update Document CID", () =>
-                          setDocument(b.tokenId, document.kind, document.cid),
-                        );
-                      } catch (err) {
-                        setError(String((err as Error).message || err));
-                      }
-                    })();
+                    void submit("Update Document CID", async () => {
+                      const b = await resolveBatch(document.id, batches);
+                      return setDocument(b.tokenId, document.kind, document.cid);
+                    }).then(confirmed => {
+                      if (confirmed) setDocumentUploadStatus("LINKED");
+                    });
                   }}
                 >
                   <Field label="Batch ID / Token ID" required>
                     <input
                       required
                       value={document.id}
-                      onChange={(e) =>
-                        setDocumentForm({ ...document, id: e.target.value })
-                      }
+                      onChange={(e) => {
+                        setDocumentForm({
+                          ...document,
+                          id: e.target.value,
+                          cid: ""
+                        });
+                        setDocumentFile(null);
+                        setDocumentUploadStatus(null);
+                      }}
+                      readOnly={submitting || uploadingDocument}
                       placeholder="MED-2024-00142"
                     />
                   </Field>
                   <Field label="Document type">
                     <select
                       value={document.kind}
-                      onChange={(e) =>
+                      onChange={(e) => {
                         setDocumentForm({
                           ...document,
                           kind: Number(e.target.value) as 0 | 1 | 2,
-                        })
-                      }
+                          cid: ""
+                        });
+                        setDocumentFile(null);
+                        setDocumentUploadStatus(null);
+                      }}
+                      disabled={submitting || uploadingDocument}
                     >
                       <option value={0}>Certificate of origin (PDF)</option>
                       <option value={1}>Quality certificate (image)</option>
                       <option value={2}>Chemical metadata (JSON)</option>
                     </select>
                   </Field>
-                  <Field
-                    label="IPFS CID"
-                    required
-                    hint="Upload and encrypt restricted documents before entering the CID"
-                  >
+
+                  <Field label="Visibility">
+                    <select value={visibility} disabled={submitting || uploadingDocument}
+                      onChange={event => {
+                        setVisibility(event.target.value as typeof visibility);
+                        setDocumentFile(null);
+                        setDocumentForm(previous => ({...previous, cid: ""}));
+                        setDocumentUploadStatus(null);
+                      }}>
+                      <option value="PUBLIC">Public</option>
+                      <option value="RESTRICTED">Restricted (encrypted)</option>
+                    </select>
+                  </Field>
+                  <Field label="Document file">
                     <input
-                      required
-                      value={document.cid}
-                      onChange={(e) =>
-                        setDocumentForm({ ...document, cid: e.target.value })
+                      ref={documentPicker}
+                      key={document.id + ":" + document.kind + ":" + visibility}
+                      disabled={submitting || uploadingDocument}
+                      type="file"
+                      accept={
+                        document.kind === 0
+                          ? ".pdf,application/pdf"
+                          : document.kind === 1
+                            ? ".jpg,.jpeg,.png,image/jpeg,image/png"
+                            : ".json,application/json"
                       }
-                      placeholder="bafy..."
+                      onChange={(e) => {
+                        setDocumentFile(e.target.files?.[0] ?? null);
+                        setDocumentForm((previous) => ({
+                          ...previous,
+                          cid: ""
+                        }));
+                        setDocumentUploadStatus(null);
+                      }}
                     />
                   </Field>
+
+                  <button
+                    type="button"
+                    className="button full"
+                    disabled={submitting || uploadingDocument || !documentFile}
+                    onClick={() => void handleDocumentUpload()}
+                  >
+                    {uploadingDocument ? "Uploading..." : "Upload Document to IPFS"}
+                  </button>
+
+                  <button type="button" className="button full"
+                    disabled={submitting || uploadingDocument || !document.id.trim()}
+                    onClick={() => void handleDocumentUpload(true)}>
+                    Recover Pending CID
+                  </button>
+                  <Field label="IPFS CID" required>
+                      <input
+                        required
+                        value={document.cid}
+                        onChange={(e) => {
+                          setDocumentForm({
+                            ...document,
+                            cid: e.target.value
+                          });
+                          setDocumentUploadStatus(null);
+                        }}
+                        readOnly={submitting || uploadingDocument}
+                        placeholder="bafy..."
+                      />
+                    </Field>
+                  {documentUploadStatus && (
+                      <div className="notice blue">
+                        <span>
+                          {documentUploadStatus === "UPLOADED_NOT_LINKED"
+                            ? "Uploaded to IPFS, not yet linked on Sepolia. If the transaction fails, retry Save Document CID without uploading again."
+                            : "Document CID transaction confirmed on Sepolia."}
+                        </span>
+                      </div>
+                    )}
                   <div className="notice blue">
                     <Icon name="fc6e7" size={18} />
                     <span>{hint}</span>
                   </div>
                   <button
                     className="button primary full submit-button"
-                    disabled={submitting || !configured}
+                    disabled={submitting || uploadingDocument || !configured}
                   >
                     Save Document CID
                   </button>

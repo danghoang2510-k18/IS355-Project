@@ -14,8 +14,8 @@ const date = (seconds: number) =>
 type ScanPageProps = {
   registry: Batch[];
   initial: string;
-  onVerify: (value: string) => Promise<Batch | null>;
-  onTrace: (tokenId: string) => void;
+  onVerify: (value: string, tokenIdOnly: boolean) => Promise<Batch | null>;
+  onTrace: (batch: Batch) => void;
 };
 
 export default function ScanPage({
@@ -35,6 +35,7 @@ export default function ScanPage({
 
   useEffect(() => {
     setInput(initial);
+    if (initial) void verifyRef.current(initial);
   }, [initial]);
 
   async function verify(value: string) {
@@ -50,9 +51,9 @@ export default function ScanPage({
       // Extract the token ID / batch identifier from the QR payload.
       // URL payloads are checked against the configured Sepolia contract.
       const identifier = parseScannedCode(rawValue);
-      setInput(identifier);
+      setInput(rawValue);
 
-      const batch = await onVerify(identifier);
+      const batch = await onVerify(identifier, identifier !== rawValue);
       setQueried(identifier);
       setResult(batch);
     } catch (verificationError) {
@@ -108,7 +109,7 @@ export default function ScanPage({
   const status = result?.verification ?? 0;
   const title =
     status === 1
-      ? "Authentic product"
+      ? "Authentic batch record"
       : status === 2
         ? "Batch expired"
         : status === 3
@@ -117,7 +118,7 @@ export default function ScanPage({
             ? "Batch destroyed"
             : status === 5
               ? "Invalid owner"
-              : "Not found / counterfeit";
+              : "Batch record not found";
 
   const availableBatches = registry.slice(0, 4);
 
@@ -276,7 +277,7 @@ export default function ScanPage({
 
                 <button
                   className="button primary full"
-                  onClick={() => onTrace(result.tokenId)}
+                  onClick={() => onTrace(result)}
                 >
                   View full trace ›
                 </button>

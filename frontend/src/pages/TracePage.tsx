@@ -8,6 +8,9 @@ import {
   short,
 } from "../services/chain";
 import { Icon, StatusPill } from "../components/Ui";
+import { getApiBaseUrl } from "../services/api";
+import { authenticateWallet } from "../services/wallet";
+import TemperatureHistory from "../components/TemperatureHistory";
 import PriceAccess from "../components/PriceAccess";
 
 const date = (seconds: number) =>
@@ -33,6 +36,7 @@ const label = (batch: Batch) =>
               : "Invalid owner";
 
 type TracePageProps = {
+  registryState: "ready" | "loading" | "unavailable";
   batches: Batch[];
   selected: string;
   setSelected: (value: string) => void;
@@ -44,6 +48,7 @@ type TracePageProps = {
 
 export default function TracePage({
   batches,
+  registryState,
   selected,
   setSelected,
   wallet,
@@ -56,9 +61,29 @@ export default function TracePage({
   const [docs, setDocs] = useState<
     { kind: number; cid: string; updatedBy: string }[]
   >([]);
+  const [documentError, setDocumentError] = useState("");
   const [historyError, setHistoryError] = useState("");
 
-  const batch = batches.find((item) => item.tokenId === selected) || batches[0];
+  const [filters, setFilters] = useState({status: "", owner: "", role: "", expiry: "", mine: false});
+  const [page, setPage] = useState(() => Math.max(1, 1 + Math.floor(batches.findIndex(b => b.tokenId === selected) / 10)));
+  const now = Date.now() / 1000;
+  const expiring = (item: Batch) => !item.lifecycle && item.expiryDate > now && item.expiryDate <= now + 30 * 86400;
+  const owned = (item: Batch) => Boolean(wallet.address && !item.lifecycle && wallet.address.toLowerCase() === item.owner.toLowerCase());
+  const filtered = batches.filter(item =>
+    `${item.batchNumber} ${item.medicineName} ${item.gtin} ${item.tokenId}`.toLowerCase().includes(search.toLowerCase())
+    && (!filters.status || filters.status === item.status)
+    && item.owner.toLowerCase().includes(filters.owner.toLowerCase().trim())
+    && (!filters.role || item.ownerRole === filters.role)
+    && (!filters.expiry || (filters.expiry === "soon" ? expiring(item) : item.expiryDate <= now))
+    && (!filters.mine || owned(item)));
+  const pages = Math.max(1, Math.ceil(filtered.length / 10));
+  const currentPage = Math.min(page, pages);
+  const visible = filtered.slice((currentPage - 1) * 10, currentPage * 10);
+  const batch = visible.find(item => item.tokenId === selected) || visible[0];
+  function updateFilter<K extends keyof typeof filters>(key: K, value: typeof filters[K]) {
+    setFilters(previous => ({...previous, [key]: value}));
+    setPage(1);
+  }
   const tokenId = batch?.tokenId;
 
   // Always read custody history and document references from Sepolia.
@@ -75,6 +100,7 @@ export default function TracePage({
       };
     }
 
+    setDocumentError("");
     setHistory([]);
     setDocs([]);
     setHistoryError("");
@@ -94,19 +120,13 @@ export default function TracePage({
         if (!canceled) setDocs(items);
       })
       .catch(() => {
-        if (!canceled) setDocs([]);
+        if (!canceled) setDocumentError("Document references could not be read. Please retry.");
       });
 
     return () => {
       canceled = true;
     };
   }, [tokenId]);
-
-  const filtered = batches.filter((item) =>
-    `${item.batchNumber} ${item.medicineName} ${item.tokenId}`
-      .toLowerCase()
-      .includes(search.toLowerCase()),
-  );
 
   const progress = batch ? (batch.lifecycle ? 4 : batch.stage + 1) : 0;
 
@@ -119,14 +139,32 @@ export default function TracePage({
           <Icon name="d698b" size={15} />
           <input
             value={search}
-            onChange={(event) => setSearch(event.target.value)}
+            onChange={(event) => {setSearch(event.target.value); setPage(1);}}
             placeholder="Search batch ID..."
             aria-label="Search batches"
           />
         </div>
 
+        <details className="registry-filters"><summary>Filters and totals</summary>
+          <p>{batches.length} batches · {batches.filter(expiring).length} expiring within 30 days</p>
+          <label>Status<select value={filters.status} onChange={e => updateFilter("status", e.target.value)}>
+            <option value="">All statuses</option>
+            {[...new Set(batches.map(b => b.status))].map(status =>
+              <option key={status} value={status}>{status} ({batches.filter(b => b.status === status).length})</option>)}
+          </select></label>
+          <label>Owner wallet<input value={filters.owner} onChange={e => updateFilter("owner", e.target.value)}/></label>
+          <label>Owner role<select value={filters.role} onChange={e => updateFilter("role", e.target.value)}>
+            <option value="">All roles</option>
+            {["MANUFACTURER","DISTRIBUTOR","PHARMACY","HOSPITAL"].map(role => <option key={role}>{role}</option>)}
+          </select></label>
+          <label>Expiry<select value={filters.expiry} onChange={e => updateFilter("expiry", e.target.value)}>
+            <option value="">Any date</option><option value="soon">Next 30 days</option><option value="past">Past expiry</option>
+          </select></label>
+          {wallet.address && <label><input type="checkbox" checked={filters.mine}
+            onChange={e => updateFilter("mine", e.target.checked)}/> My batches ({batches.filter(owned).length})</label>}
+        </details>
         <div className="batch-list">
-          {filtered.map((item) => (
+          {visible.map((item) => (
             <button
               className={`batch-list-item ${batch?.tokenId === item.tokenId ? "active" : ""}`}
               key={item.tokenId}
@@ -144,11 +182,16 @@ export default function TracePage({
             </button>
           ))}
 
-          {filtered.length === 0 && (
+          {registryState === "ready" && filtered.length === 0 && (
             <p className="empty-hint">No matching batches</p>
           )}
         </div>
 
+        {pages > 1 && <nav className="registry-pages" aria-label="Registry pages">
+          <button disabled={currentPage === 1} onClick={() => setPage(currentPage - 1)}>Previous</button>
+          {currentPage} / {pages}
+          <button disabled={currentPage === pages} onClick={() => setPage(currentPage + 1)}>Next</button>
+        </nav>}
         <div className="rail-footer">
           <span className="dot" />
           <span>
@@ -303,6 +346,10 @@ export default function TracePage({
                       </div>
 
                       {item.detail && <p>{item.detail}</p>}
+                      {wallet.address && item.kind === "transferred" &&
+                        [item.actor, item.to].some(party => party?.toLowerCase() === wallet.address.toLowerCase()) &&
+                        <PriceAccess key={wallet.address + item.txHash} tokenId={batch.tokenId}
+                          wallet={wallet.address} txHash={item.txHash} />}
                     </div>
                   </div>
                 ))}
@@ -340,6 +387,7 @@ export default function TracePage({
                   )}
               </div>
 
+              {documentError && <div className="notice red" role="alert">{documentError}</div>}
               {docs.some((item) => item.cid) && (
                 <div className="documents-card">
                   <h3>Document references</h3>
@@ -361,6 +409,29 @@ export default function TracePage({
                         >
                           {short(item.cid)} ↗
                         </a>
+                        {getApiBaseUrl() && <button className="button outline" onClick={async () => {
+                          setDocumentError("");
+                          const kind = ["CERTIFICATE_OF_ORIGIN", "QUALITY_CERTIFICATE", "CHEMICAL_METADATA"][item.kind];
+                          const url = `${getApiBaseUrl()}/api/v1/batches/${batch.tokenId}/documents/${kind}/content`;
+                          try {
+                            let response = await fetch(url, {credentials: "omit"});
+                            if (response.status === 403 && wallet.address) {
+                              const session = await authenticateWallet();
+                              if (session.address.toLowerCase() !== wallet.address.toLowerCase())
+                                throw new Error("Connected wallet changed.");
+                              response = await fetch(url, {credentials: "include"});
+                            }
+                            if (!response.ok) throw new Error(`Document download failed (HTTP ${response.status}).`);
+                            const file = await response.blob();
+                            const href = URL.createObjectURL(file);
+                            const anchor = document.createElement("a");
+                            anchor.href = href;
+                            const ext = ({"application/pdf":"pdf","image/png":"png","image/jpeg":"jpg","application/json":"json"} as Record<string,string>)[file.type.split(";")[0]] || "bin";
+                            anchor.download = `batch-${batch.tokenId}-${kind}.${ext}`;
+                            anchor.click();
+                            setTimeout(() => URL.revokeObjectURL(href), 1000);
+                          } catch (error) { setDocumentError(String((error as Error).message)); }
+                        }}>Download verified file</button>}
                       </div>
                     ))}
                 </div>
@@ -369,7 +440,8 @@ export default function TracePage({
           </>
         ) : (
           <div className="center-empty">
-            No batches to display.
+            {registryState === "unavailable" ? "Registry temporarily unavailable." :
+              registryState === "loading" ? "Loading registry…" : "No matching batches."}
             {wallet.role === "MANUFACTURER" && (
               <button className="button primary" onClick={onManage}>
                 Register a batch
@@ -416,6 +488,7 @@ export default function TracePage({
               </div>
             </div>
 
+            {getApiBaseUrl() && <TemperatureHistory key={batch.tokenId} tokenId={batch.tokenId}/>}
             <div className="detail-section">
               <h3>On-chain data</h3>
               {[
@@ -447,9 +520,7 @@ export default function TracePage({
                 <Icon name="e712a" size={17} /> Verify authenticity
               </button>
 
-              {Boolean(wallet.address) && (
-                <PriceAccess tokenId={batch.tokenId} wallet={wallet.address} />
-              )}
+
             </div>
           </>
         )}

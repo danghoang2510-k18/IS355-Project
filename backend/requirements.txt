@@ -1,0 +1,9 @@
+fastapi
+uvicorn[standard]
+pytest
+httpx
+pydantic-settings
+web3
+requests
+python-multipart
+pycryptodome>=3.23,<4

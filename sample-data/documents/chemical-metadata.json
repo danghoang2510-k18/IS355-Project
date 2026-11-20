@@ -1,0 +1,20 @@
+{
+  "schemaVersion": "1.0",
+  "gtin": "09506000134352",
+  "batchNumber": "LOT-2026-0001",
+  "medicineName": "Demo Medicine A",
+  "dosageForm": "tablet",
+  "ingredients": [
+    {
+      "name": "Example Compound",
+      "amount": "250",
+      "unit": "mg"
+    }
+  ],
+  "storage": {
+    "minCelsius": 2,
+    "maxCelsius": 8
+  },
+  "issuedBy": "DSCT Demo Manufacturer",
+  "disclaimer": "Fictional test data for academic blockchain project; not medical information"
+}

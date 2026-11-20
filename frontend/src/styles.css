@@ -18,3 +18,9 @@
 .tx-preview-controls{padding:16px;display:flex;flex-wrap:wrap;gap:6px;border-top:1px solid #1e3058}.tx-preview-controls .rail-heading{width:100%;margin-bottom:6px}.tx-preview-controls button{background:#1a2b47;color:#a8bad3;border:1px solid #263b5e;border-radius:5px;padding:5px 7px;font-size:10px;text-transform:capitalize}.tx-preview-controls button:hover{border-color:#00c896}
 .preview-query-button{display:block;margin:8px auto 0;background:none;border:0;color:#61799a;font-size:10px;text-decoration:underline;cursor:pointer}
 .mobile-tx-preview{display:none}@media(max-width:1050px){.mobile-tx-preview{display:flex;margin-top:15px;border:1px solid #263b5e;border-radius:8px}}
+
+.registry-filters { padding: .5rem 1rem; font-size: .85rem; }
+.registry-filters summary, .registry-pages button { cursor: pointer; }
+.registry-filters label { display: block; margin: .4rem 0; }
+.registry-filters select, .registry-filters input:not([type=checkbox]) { width: 100%; padding: .35rem; }
+.registry-pages { display: flex; justify-content: space-around; align-items: center; padding: .5rem; }

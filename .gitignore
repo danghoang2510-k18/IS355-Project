@@ -16,10 +16,12 @@ frontend/*.tsbuildinfo
 # Environment variables / Secrets
 **/.env
 **/.env.*
+*.env
 !**/.env.example
 
 # Logs
 **/*.log
+*.log.[0-9]*
 npm-debug.log*
 pnpm-debug.log*
 
@@ -30,3 +32,28 @@ Thumbs.db
 # IDE
 .idea/
 .vscode/
+
+# Python Backend
+**/.venv/
+**/__pycache__/
+**/.pytest_cache/
+**/*.py[cod]
+
+# Runtime SQLite files and journals
+*.db
+*.sqlite
+*.sqlite3
+*.db-wal
+*.db-shm
+*.db-journal
+*.sqlite-wal
+*.sqlite-shm
+*.sqlite-journal
+*.sqlite3-wal
+*.sqlite3-shm
+*.sqlite3-journal
+
+# Editor and tool temporary files
+*.tmp
+*.swp
+*~

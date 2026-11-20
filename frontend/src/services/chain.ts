@@ -1,3 +1,5 @@
+import { authenticateWallet } from "./wallet";
+import { apiRequest, getApiBaseUrl, type ApiEnvelope } from "./api";
 import {
   BrowserProvider,
   Contract,
@@ -49,7 +51,7 @@ export function parseScannedCode(raw: string): string {
     throw new Error(
       "QR code does not match the configured Sepolia chain and contract.",
     );
-  if (!tokenId || !/^\d+$/.test(tokenId))
+  if (!tokenId || !/^[0-9]{1,78}$/.test(tokenId) || BigInt(tokenId) >= 2n ** 256n)
     throw new Error("QR code has no valid token ID.");
   return tokenId;
 }
@@ -69,9 +71,10 @@ declare global {
   }
 }
 
+let publicProvider: JsonRpcProvider | undefined;
 function readProvider() {
-  if (RPC) return new JsonRpcProvider(RPC, Number(CHAIN_ID));
-  if (window.ethereum) return new BrowserProvider(window.ethereum);
+  if (RPC) return publicProvider ??= new JsonRpcProvider(RPC, Number(CHAIN_ID));
+  if (window.ethereum) return new BrowserProvider(window.ethereum, Number(CHAIN_ID));
   throw new Error(
     "Set VITE_SEPOLIA_RPC_URL or install a wallet to read Sepolia.",
   );
@@ -153,7 +156,10 @@ export async function connectWallet(): Promise<WalletState> {
     throw new Error("Select Sepolia in your wallet.");
   let role: Role = "NONE",
     organization = "Unregistered wallet";
-  const p = await new Contract(ADDRESS, abi, provider).getParticipant(address);
+  const contract = new Contract(ADDRESS, abi, provider);
+  const [p, isAdmin] = await Promise.all([
+    contract.getParticipant(address), contract.hasRole(await contract.DEFAULT_ADMIN_ROLE(), address),
+  ]);
   if (p.active) {
     role = roleNames[Number(p.role)] || "NONE";
     organization = p.organizationName;
@@ -164,6 +170,7 @@ export async function connectWallet(): Promise<WalletState> {
     organization,
     balance: Number(formatEther(await provider.getBalance(address))).toFixed(3),
     preview: false,
+    isAdmin,
   };
 }
 export function statusOf(verification: number, stage: number): Batch["status"] {
@@ -201,11 +208,39 @@ export async function getBatch(tokenId: string): Promise<Batch> {
     stage,
     metadataCID: raw.metadataCID,
     owner,
+    ownerRole: Number(raw.lifecycle) !== 0 || v === 5 ? "NONE" : stage === 0 ? "MANUFACTURER" :
+      stage === 1 ? "DISTRIBUTOR" : roleNames[Number((await c.getParticipant(owner)).role)],
     verification: v,
     status: statusOf(v, stage),
   };
 }
+interface IndexedEvent {
+  tokenId: string; event: string; timestamp: number; txHash: string;
+  args: Record<string, string | number>;
+}
+
+async function indexedEvents(path: string): Promise<IndexedEvent[] | null> {
+  if (!getApiBaseUrl()) return null;
+  const events: IndexedEvent[] = [];
+  let snapshot = "";
+  try {
+    for (let page = 1; ; page++) {
+      const result = await apiRequest<ApiEnvelope<IndexedEvent[]>>(`${path}?page=${page}`);
+      const meta = result.meta;
+      if (meta?.chainId !== Number(CHAIN_ID) || String(meta.contract).toLowerCase() !== ADDRESS.toLowerCase()
+          || typeof meta.blockHash !== "string" || (snapshot && snapshot !== meta.blockHash)) return null;
+      snapshot = meta.blockHash;
+      events.push(...result.data);
+      if (!meta.hasMore) return events;
+    }
+  } catch {
+    return null;
+  }
+}
+
 export async function listBatches(): Promise<Batch[]> {
+  const indexed = await indexedEvents("/api/v1/batches");
+  if (indexed) return (await Promise.all(indexed.map(e => getBatch(e.tokenId)))).reverse();
   const c = readContract();
   const events = await queryLogsInChunks((fromBlock, toBlock) =>
     c.queryFilter(c.filters.MedicineRegistered(), fromBlock, toBlock),
@@ -225,87 +260,59 @@ export async function resolveBatch(
   registry: Batch[],
 ): Promise<Batch> {
   const v = input.trim();
-  const found = registry.find((b) =>
-    [b.tokenId, b.batchNumber.toLowerCase(), b.gtin].includes(v.toLowerCase()),
-  );
+  const exactToken = registry.find(b => b.tokenId === v);
+  if (exactToken) return configured ? getBatch(exactToken.tokenId) : exactToken;
+  const matches = registry.filter(b => b.batchNumber.toLowerCase() === v.toLowerCase() || b.gtin === v);
+  if (matches.length > 1) throw new Error("Multiple batches match this identifier. Use a token ID.");
+  const found = matches[0];
   if (found) return configured ? getBatch(found.tokenId) : found;
   if (/^\d+$/.test(v) && configured) return getBatch(v);
   throw new Error(
     "No matching batch found. Use a token ID or a registered batch ID/GTIN.",
   );
 }
+function historyItem(event: string, args: Record<string, unknown>, timestamp: number, txHash: string): HistoryItem {
+  const base = {timestamp, txHash};
+  switch (event) {
+    case "MedicineRegistered":
+      return {...base, kind: "registered", label: "Manufacturer", actor: String(args.manufacturer),
+        detail: `Batch registered · ${args.batchNumber}`};
+    case "CustodyTransferred":
+      return {...base, kind: "transferred", label: "Custody transferred", actor: String(args.from),
+        to: String(args.to), detail: "Encrypted price recorded in transaction event."};
+    case "DocumentCIDUpdated":
+      return {...base, kind: "document", label: "Document updated", actor: String(args.updatedBy),
+        detail: `CID: ${args.cid}`};
+    case "TokenBurned":
+      return {...base, kind: "burned", label: Number(args.finalStatus) === 1 ? "Dispensed" : "Destroyed",
+        actor: String(args.lastOwner), detail: "NFT burned; history remains on-chain."};
+    default:
+      throw new Error("Unrecognized custody event.");
+  }
+}
 export async function getHistory(tokenId: string): Promise<HistoryItem[]> {
   const c = readContract();
+  const indexed = await indexedEvents(`/api/v1/batches/${tokenId}/timeline`);
+  if (indexed) return indexed.map(e => historyItem(e.event, e.args, e.timestamp, e.txHash));
   const id = BigInt(tokenId);
-  const filters = [
-    c.filters.MedicineRegistered(id),
-    c.filters.CustodyTransferred(id),
-    c.filters.DocumentCIDUpdated(id),
-    c.filters.TokenBurned(id),
-  ];
-  const groups = await Promise.all(
-    filters.map((filter) =>
-      queryLogsInChunks((fromBlock, toBlock) =>
-        c.queryFilter(filter, fromBlock, toBlock),
-      ),
-    ),
-  );
   const provider = readProvider();
-  const blocks = new Map<number, number>();
+  const topics = ["MedicineRegistered", "CustodyTransferred", "DocumentCIDUpdated", "TokenBurned"]
+    .map(name => c.interface.getEvent(name)!.topicHash);
+  const logs = await queryLogsInChunks((fromBlock, toBlock) => provider.getLogs({
+    address: ADDRESS, topics: [topics, "0x" + id.toString(16).padStart(64, "0")], fromBlock, toBlock,
+  }));
+  const blocks = new Map<string, number>();
   const items: HistoryItem[] = [];
-  for (let i = 0; i < groups.length; i++)
-    for (const e of groups[i]) {
-      if (!blocks.has(e.blockNumber)) {
-        const block = await provider.getBlock(e.blockNumber);
-        blocks.set(e.blockNumber, block?.timestamp || 0);
-      }
-      const parsed = c.interface.parseLog({
-        topics: [...e.topics],
-        data: e.data,
-      });
-      if (!parsed) continue;
-      const a = parsed.args;
-      items.push(
-        i === 0
-          ? {
-              kind: "registered",
-              label: "Manufacturer",
-              actor: a.manufacturer,
-              timestamp: blocks.get(e.blockNumber)!,
-              txHash: e.transactionHash,
-              detail: `Batch registered · ${a.batchNumber}`,
-            }
-          : i === 1
-            ? {
-                kind: "transferred",
-                label: "Custody transferred",
-                actor: a.from,
-                to: a.to,
-                timestamp: blocks.get(e.blockNumber)!,
-                txHash: e.transactionHash,
-                detail: "Encrypted price recorded in transaction event.",
-              }
-            : i === 2
-              ? {
-                  kind: "document",
-                  label: "Document updated",
-                  actor: a.updatedBy,
-                  timestamp: blocks.get(e.blockNumber)!,
-                  txHash: e.transactionHash,
-                  detail: `CID: ${a.cid}`,
-                }
-              : {
-                  kind: "burned",
-                  label:
-                    Number(a.finalStatus) === 1 ? "Dispensed" : "Destroyed",
-                  actor: a.lastOwner,
-                  timestamp: blocks.get(e.blockNumber)!,
-                  txHash: e.transactionHash,
-                  detail: "NFT burned; history remains on-chain.",
-                },
-      );
+  for (const log of logs.sort((a, b) => a.blockNumber - b.blockNumber || a.index - b.index)) {
+    if (!blocks.has(log.blockHash)) {
+      const block = await provider.getBlock(log.blockHash);
+      if (!block) throw new Error("History block unavailable. Retry after the chain settles.");
+      blocks.set(log.blockHash, block.timestamp);
     }
-  return items.sort((a, b) => a.timestamp - b.timestamp);
+    const parsed = c.interface.parseLog(log);
+    if (parsed) items.push(historyItem(parsed.name, parsed.args, blocks.get(log.blockHash)!, log.transactionHash));
+  }
+  return items;
 }
 export async function registerMedicine(data: {
   gtin: string;
@@ -352,62 +359,10 @@ export async function registerMedicine(data: {
     data.metadataCID.trim(),
   );
 }
-const b64 = (a: Uint8Array) => btoa(String.fromCharCode(...a));
-export async function encryptPrice(
-  price: string,
-  secret: string,
-): Promise<string> {
-  if (!price.trim() || !secret)
-    throw new Error("Enter a price and encryption passphrase.");
-  const salt = crypto.getRandomValues(new Uint8Array(16)),
-    nonce = crypto.getRandomValues(new Uint8Array(12));
-  const base = await crypto.subtle.importKey(
-    "raw",
-    new Uint8Array(toUtf8Bytes(secret)).buffer,
-    "PBKDF2",
-    false,
-    ["deriveKey"],
-  );
-  const key = await crypto.subtle.deriveKey(
-    {
-      name: "PBKDF2",
-      salt: salt.buffer as ArrayBuffer,
-      iterations: 250000,
-      hash: "SHA-256",
-    },
-    base,
-    { name: "AES-GCM", length: 256 },
-    false,
-    ["encrypt"],
-  );
-  const ciphertext = new Uint8Array(
-    await crypto.subtle.encrypt(
-      { name: "AES-GCM", iv: nonce.buffer as ArrayBuffer },
-      key,
-      new Uint8Array(toUtf8Bytes(price)).buffer,
-    ),
-  );
-  const envelope = JSON.stringify({
-    v: 1,
-    alg: "AES-256-GCM",
-    kdf: "PBKDF2-SHA256",
-    iterations: 250000,
-    salt: b64(salt),
-    nonce: b64(nonce),
-    ciphertext: b64(ciphertext),
-  });
-  const bytes = toUtf8Bytes(envelope);
-  if (bytes.length > 1024)
-    throw new Error("Encrypted price is too large for the contract.");
-  return (
-    "0x" + Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("")
-  );
-}
 export async function transferBatch(
   tokenId: string,
   recipient: string,
   price: string,
-  secret: string,
 ): Promise<TransactionResponse> {
   if (!isAddress(recipient))
     throw new Error("Recipient wallet address is invalid.");
@@ -415,10 +370,23 @@ export async function transferBatch(
   const signer = await new BrowserProvider(window.ethereum!).getSigner();
   if (getAddress(await signer.getAddress()) === getAddress(recipient))
     throw new Error("Recipient must be another wallet.");
-  const bytes = await encryptPrice(price, secret);
+  const session = await authenticateWallet();
+  if (getAddress(session.address) !== getAddress(await signer.getAddress()))
+    throw new Error("Wallet changed before encryption.");
+  const {data} = await apiRequest<ApiEnvelope<{encryptedPrice: string}>>(
+    "/api/v1/encryption/prices", {method: "POST", body: {tokenId, recipient, amount: price, currency: "USD"}}
+  );
+  const bytes = data.encryptedPrice;
   await c.transferOwnership.staticCall(BigInt(tokenId), recipient, bytes);
   return c.transferOwnership(BigInt(tokenId), recipient, bytes);
 }
+export async function updateParticipant(address: string, role: number, organization: string, active: boolean) {
+  if (!isAddress(address) || (active && !organization.trim())) throw new Error("Enter a valid wallet and organization.");
+  const c = await writeContract();
+  await c.setParticipant.staticCall(address, role, organization.trim(), active);
+  return c.setParticipant(address, role, organization.trim(), active) as Promise<TransactionResponse>;
+}
+
 export async function burnBatch(
   tokenId: string,
   finalStatus: 1 | 2,
@@ -446,33 +414,22 @@ export async function getDocuments(tokenId: string) {
     }),
   );
 }
-export async function decryptLatestPrice(
-  tokenId: string,
-  wallet: string,
-  secret: string,
-): Promise<string> {
-  if (!secret)
-    throw new Error("Enter the passphrase shared for this transfer.");
+export async function decryptTransferPrice(tokenId: string, txHash: string, wallet: string, secret?: string) {
+  if (!secret) {
+    const session = await authenticateWallet();
+    if (getAddress(session.address) !== getAddress(wallet)) throw new Error("Wallet changed.");
+    const result = await apiRequest<ApiEnvelope<{amount: string}>>("/api/v1/encryption/prices/decrypt",
+      {method: "POST", body: {tokenId, txHash}});
+    return result.data.amount;
+  }
+  const receipt = await readProvider().getTransactionReceipt(txHash);
   const c = readContract();
-  const events = await queryLogsInChunks((fromBlock, toBlock) =>
-    c.queryFilter(
-      c.filters.CustodyTransferred(BigInt(tokenId)),
-      fromBlock,
-      toBlock,
-    ),
-  );
-  const latest = events.at(-1);
-  if (!latest) throw new Error("No transfer price is recorded for this batch.");
-  const parsed = c.interface.parseLog({
-    topics: [...latest.topics],
-    data: latest.data,
-  });
-  if (!parsed) throw new Error("Could not decode the transfer event.");
-  if (
-    getAddress(wallet) !== getAddress(parsed.args.from) &&
-    getAddress(wallet) !== getAddress(parsed.args.to)
-  )
-    throw new Error("This wallet did not participate in the latest transfer.");
+  const events = receipt?.logs.filter(log => log.address.toLowerCase() === ADDRESS.toLowerCase())
+    .map(log => c.interface.parseLog(log))
+    .filter(event => event?.name === "CustodyTransferred" && event.args.tokenId.toString() === tokenId);
+  const parsed = events?.length === 1 && events[0];
+  if (!parsed || ![parsed.args.from, parsed.args.to].some(party => getAddress(party) === getAddress(wallet)))
+    throw new Error("Transfer is unavailable for this wallet.");
   const envelope = JSON.parse(
     toUtf8String(getBytes(parsed.args.encryptedPrice)),
   ) as {

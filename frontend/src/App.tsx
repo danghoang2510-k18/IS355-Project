@@ -1,5 +1,7 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { TransactionResponse } from "ethers";
+import { logoutWalletSession } from "./services/wallet";
+import { getApiBaseUrl } from "./services/api";
 import Header, { type Page } from "./components/Header";
 import { TransactionModal } from "./components/Ui";
 import ConnectPage from "./pages/ConnectPage";
@@ -8,6 +10,7 @@ import ScanPage from "./pages/ScanPage";
 import ManagePage from "./pages/ManagePage";
 import {
   connectWallet,
+  getBatch,
   isLiveReady,
   listBatches,
   publicReadReady,
@@ -28,34 +31,48 @@ export default function App() {
     >([]),
     [connectError, setConnectError] = useState(""),
     [connecting, setConnecting] = useState(false),
+    [registryError, setRegistryError] = useState(""),
     [loading, setLoading] = useState(false);
+  const registryRequest = useRef(0);
   const refresh = useCallback(async () => {
     if (!isLiveReady()) return;
+    const request = ++registryRequest.current;
     setLoading(true);
     try {
       const data = await listBatches();
+      if (request !== registryRequest.current) return;
+      setRegistryError("");
       setBatches(data);
       setSelected((old) =>
         data.some((b) => b.tokenId === old) ? old : data[0]?.tokenId || "",
       );
     } catch (e) {
-      setConnectError(
-        `Could not read Sepolia: ${String((e as Error).message || e)}`,
-      );
+      if (request !== registryRequest.current) return;
+      setRegistryError(`Registry unavailable: ${String((e as Error).message || e)}`);
     } finally {
-      setLoading(false);
+      if (request === registryRequest.current) setLoading(false);
+    }
+  }, []);
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    if (url.pathname === "/verify" && url.searchParams.has("tokenId") && publicReadReady) {
+      browsePublic();
+      setScanInitial(url.href);
+      setPage("scan");
     }
   }, []);
   useEffect(() => {
     if (wallet) {
       void refresh();
     }
+    return () => { registryRequest.current++; };
   }, [wallet?.address, refresh]);
 
   useEffect(() => {
     if (!wallet?.address || !window.ethereum?.on) return;
 
     const resetForWalletChange = () => {
+      endBackendSession();
       setWallet(null);
       setPendingWallet(null);
       setBatches([]);
@@ -90,6 +107,10 @@ export default function App() {
     } finally {
       setConnecting(false);
     }
+  }
+  function endBackendSession() {
+    if (getApiBaseUrl()) void logoutWalletSession().catch(() =>
+      setConnectError("Wallet disconnected locally. Server session revocation could not be confirmed."));
   }
   function continueWithWallet() {
     if (!pendingWallet) return;
@@ -138,7 +159,7 @@ export default function App() {
           10,
         ),
       );
-      await refresh();
+      void refresh();
     } catch (e) {
       const err = e as Error & { shortMessage?: string };
       const message = String(err.shortMessage || err.message || e);
@@ -146,19 +167,20 @@ export default function App() {
       throw e;
     }
   }
-  async function verify(value: string): Promise<Batch | null> {
+  async function verify(value: string, tokenIdOnly: boolean): Promise<Batch | null> {
     try {
-      return await resolveBatch(value, batches);
+      return tokenIdOnly ? await getBatch(value) : await resolveBatch(value, batches);
     } catch (e) {
       const message = String((e as Error).message || e);
 
       if (
-        message.includes("No matching batch") ||
+        (message.includes("No matching batch") && !registryError && !loading) ||
         message.includes("UnknownBatch")
       ) {
         return null;
       }
 
+      if (message.includes("No matching batch")) throw new Error(registryError || "Registry is loading.");
       throw e;
     }
   }
@@ -186,6 +208,7 @@ export default function App() {
         role={wallet.role}
         preview={false}
         disconnect={() => {
+          endBackendSession();
           setWallet(null);
           setPendingWallet(null);
         }}
@@ -197,6 +220,8 @@ export default function App() {
           <button onClick={() => setConnectError("")}>×</button>
         </div>
       )}
+      {registryError && <div className="global-error" role="alert">{registryError}
+        <button disabled={loading} onClick={() => void refresh()}>Retry</button></div>}
       {loading && (
         <div className="loading-strip">
           Refreshing confirmed Sepolia records…
@@ -204,6 +229,7 @@ export default function App() {
       )}
       {page === "trace" ? (
         <TracePage
+          registryState={registryError ? "unavailable" : loading ? "loading" : "ready"}
           batches={batches}
           selected={selected}
           setSelected={setSelected}
@@ -217,8 +243,10 @@ export default function App() {
           registry={batches}
           initial={scanInitial}
           onVerify={verify}
-          onTrace={(id) => {
-            setSelected(id);
+          onTrace={(batch) => {
+            setBatches(previous => previous.some(item => item.tokenId === batch.tokenId)
+              ? previous.map(item => item.tokenId === batch.tokenId ? batch : item) : [batch, ...previous]);
+            setSelected(batch.tokenId);
             setPage("trace");
           }}
         />

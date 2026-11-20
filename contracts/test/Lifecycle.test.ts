@@ -54,6 +54,23 @@ describe("Medicine lifecycle", function () {
       .to.be.revertedWithCustomError(supply, "ExpiredBatch");
   });
 
+  it("rejects transfer to a deactivated distributor", async function () {
+    const { supply, admin, manufacturer, distributor } = await deployFixture();
+    await register(supply, manufacturer);
+    await supply.connect(admin).setParticipant(distributor.address, 2, "Distributor", false);
+    await expect(supply.connect(manufacturer).transferOwnership(1n, distributor.address, encryptedPrice))
+      .to.be.revertedWithCustomError(supply, "InactiveParticipant");
+    expect(await supply.ownerOf(1n)).to.equal(manufacturer.address);
+  });
+
+  it("rejects destruction by a participant who does not own the batch", async function () {
+    const { supply, manufacturer, distributor } = await deployFixture();
+    await register(supply, manufacturer);
+    await expect(supply.connect(distributor).burnToken(1n, 2))
+      .to.be.revertedWithCustomError(supply, "NotOwner");
+    expect(await supply.ownerOf(1n)).to.equal(manufacturer.address);
+  });
+
   it("returns NOT_FOUND for an unknown token without reverting", async function () {
     const { supply, outsider } = await deployFixture();
     expect(await supply.verifyProduct(999n)).to.deep.equal([0n, "0x0000000000000000000000000000000000000000"]);

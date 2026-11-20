@@ -25,6 +25,7 @@ export interface Batch {
   stage: number;
   metadataCID: string;
   owner: string;
+  ownerRole?: Role;
   verification: number;
   status: Status;
 }
@@ -43,6 +44,7 @@ export interface WalletState {
   organization: string;
   balance: string;
   preview: boolean;
+  isAdmin?: boolean;
 }
 export interface TxState {
   phase: "signing" | "pending" | "success" | "failed";
